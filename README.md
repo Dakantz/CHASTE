@@ -14,7 +14,9 @@
 
 ## Our appraoch
 
-* Use finetuned LLama 3.2 1B or 3B (Hermes as base model seems good?)
+* extract noun phrases using space
+* constrain LLM using simple (!) grammar
+* Use finetuned HERMES 3.2 1B or 3B
 
 ## Setup
 

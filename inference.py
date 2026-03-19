@@ -84,7 +84,7 @@ if __name__ == "__main__":
     print("Annotating with types", annotations_types)
     annotations: dict[str, AnnotatedArticle] = annotator.annotate(
         {id: article.metadata for id, article in list(eval_set.items())},
-        annotate=[args.type],
+        annotate=annotations_types,
     )
     annotator.add_concept_uris(annotations)
 

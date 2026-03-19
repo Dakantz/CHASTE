@@ -1,6 +1,3 @@
-# %%
-import json
-
 LEGAL_ENTITY_LABELS = [
     "anatomical location",
     "animal",

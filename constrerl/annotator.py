@@ -1,9 +1,6 @@
 from pathlib import Path
-from turtle import st
 
-from nltk import text
 from sklearn.feature_extraction.text import TfidfVectorizer
-import spacy.tokens
 
 from .erl_schema import (
     clean_label,
@@ -34,7 +31,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 from typing import TypeVar, Generic
 
 # sets up the spacy transformer model, which is used to extract noun phrases for grammar generation. This is not strictly necessary, but it helps to guide the model towards more relevant entities and relations.
-import spacy_transformers
 import spacy
 import os
 
@@ -123,13 +119,13 @@ def article_to_sentences(
             relations=title_relations,
         )
     )
-    sentence_text = re.split(r"\.[\\n ]+", article.abstract)  # A *very* basic heuristic
+    sentence_text = re.split(r"\.[\n ]+", article.abstract)  # A *very* basic heuristic
     last_idx = 0
     for sentence in sentence_text:
         start_idx = article.abstract.find(sentence, max(0, last_idx - 2))
         if start_idx == -1:
             raise ValueError(
-                f"Sentnce {sentence} not contained in abstract, start_idx {last_idx}."
+                f"Sentence {sentence} not contained in abstract, start_idx {last_idx}."
             )
         end_idx = start_idx + len(sentence)
         sentence_entities: list[Entity] = [
@@ -544,6 +540,10 @@ class Annotator(ABC, Generic[T]):
             start_idx = span.lower().find(txt.lower())
             end_idx = start_idx + len(txt)
         if start_idx == -1:
+            print(
+                "WARNING: Could not find text span '{txt}' in sentence. This can lead to incorrect annotations."
+                f"Sentence: {span}, text span: {txt}"
+            )
             return None
         # the end_idx is exclusive, but the ground truth annotations are inclusive, so we subtract 1 from the end_idx
         return start_idx, end_idx - 1
@@ -673,7 +673,7 @@ entity-str ::= {entity_str_grammar}
                     subject_text_span_raw = subject_match.group(2).strip()
                     subject_start_idx, subject_end_idx = self.text_span_to_idxes(
                         subject_text_span_raw, phrases, sent.text
-                    ) or (None, None)
+                    ) or (0, len(sent.text) - 1)
                     subject_text_span = sent.text[
                         subject_start_idx : subject_end_idx + 1
                     ]
@@ -682,7 +682,7 @@ entity-str ::= {entity_str_grammar}
                     object_text_span_raw = object_match.group(2).strip()
                     object_start_idx, object_end_idx = self.text_span_to_idxes(
                         object_text_span_raw, phrases, sent.text
-                    ) or (None, None)
+                    ) or (0, len(sent.text) - 1)
                     object_text_span = sent.text[object_start_idx : object_end_idx + 1]
 
                     relations.append(

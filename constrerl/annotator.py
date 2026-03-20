@@ -1,6 +1,8 @@
+from html import entities
+from itertools import count
 from pathlib import Path
 
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 
 from .erl_schema import (
     clean_label,
@@ -30,171 +32,20 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from typing import TypeVar, Generic
 
-# sets up the spacy transformer model, which is used to extract noun phrases for grammar generation. This is not strictly necessary, but it helps to guide the model towards more relevant entities and relations.
-import spacy
+from .sentences import (
+    Sentence,
+    AnnotationSpan,
+    article_to_sentences,
+    extract_noun_phrases,
+    annotated_sentences_to_article,
+)
+from .concepts import ConceptDefinition
+
 import os
 
 ANNOTATION_SYSTEM_PROMPT = (
     """You are a medical expert annotating a medical scientific title and abstract."""
 )
-
-
-nlp = spacy.load("en_core_web_trf")
-
-
-class AnnotationSpan(BaseModel):
-    start_idx: int
-    end_idx: int
-    text: str
-
-
-def extract_noun_phrases(txt: str) -> dict[str, AnnotationSpan]:
-    # Load the English NLP model
-
-    # Parse the text
-    doc = nlp(txt)
-
-    # Extract noun phrases
-    noun_phrases = {
-        chunk.text: AnnotationSpan(
-            start_idx=chunk.start_char,
-            end_idx=chunk.end_char,
-            text=chunk.text,
-        )
-        for chunk in doc.noun_chunks
-    }
-    # remove 'a ', 'an ', 'the ' from the beginning of noun phrases
-    for k, np in (dict(noun_phrases)).items():
-        new_text = re.sub(r"^(a|an|the)\s+", "", np.text, flags=re.IGNORECASE)
-        # also remove any leading special characters
-        new_text = re.sub(r"^[^\w]+", "", new_text)
-        if new_text != np.text:
-            noun_phrases[new_text] = AnnotationSpan(
-                start_idx=np.start_idx + len(np.text) - len(new_text),
-                end_idx=np.end_idx,
-                text=new_text,
-            )
-            noun_phrases.pop(k)
-
-        new_text_end = re.sub(r"[\"\{\}]+", "", new_text)
-        if new_text_end != new_text:
-            noun_phrases[new_text_end] = AnnotationSpan(
-                start_idx=np.start_idx,
-                end_idx=np.end_idx,
-                text=new_text_end,
-            )
-            noun_phrases.pop(new_text)
-    return noun_phrases
-
-
-class Sentence(BaseModel):
-    start_idx: int
-    from_article: Metadata
-    text: str
-    title: bool = False
-
-    entities: list[Entity] | None = None
-    relations: list[FullRelation | Relation] | None = None
-
-
-def article_to_sentences(
-    article: Metadata, relations: list[Relation] = [], entities: list[Entity] = []
-):
-    sentences: list[Sentence] = []
-
-    title_entities = [ent for ent in entities if ent.location.lower() == "title"]
-    title_relations = [
-        rel
-        for rel in relations
-        if (rel.object_location.lower() == "title")
-        or (rel.subject_location.lower() == "title")
-    ]
-    sentences.append(
-        Sentence(
-            start_idx=0,
-            from_article=article,
-            text=article.title,
-            title=True,
-            entities=title_entities,
-            relations=title_relations,
-        )
-    )
-    sentence_text = re.split(r"\.[\n ]+", article.abstract)  # A *very* basic heuristic
-    last_idx = 0
-    for sentence in sentence_text:
-        start_idx = article.abstract.find(sentence, max(0, last_idx - 2))
-        if start_idx == -1:
-            raise ValueError(
-                f"Sentence {sentence} not contained in abstract, start_idx {last_idx}."
-            )
-        end_idx = start_idx + len(sentence)
-        sentence_entities: list[Entity] = [
-            Entity.model_copy(ent)
-            for ent in entities
-            if ent.start_idx >= start_idx
-            and ent.end_idx <= end_idx
-            and ent.location.lower() == "abstract"
-        ]
-        for ent in sentence_entities:
-            ent.start_idx = ent.start_idx - start_idx
-            ent.end_idx = ent.end_idx - start_idx
-        sentence_relations: list[Relation] = [
-            Relation.model_copy(rel)
-            for rel in relations
-            if (
-                (rel.object_start_idx >= start_idx and rel.object_end_idx <= end_idx)
-                or (
-                    rel.subject_start_idx >= start_idx
-                    and rel.subject_end_idx <= end_idx
-                )
-            )
-            and (
-                rel.object_location.lower() == "abstract"
-                or rel.subject_location.lower() == "abstract"
-            )
-        ]
-        for rel in sentence_relations:
-            rel.subject_start_idx = rel.subject_start_idx - start_idx
-            rel.subject_end_idx = rel.subject_end_idx - start_idx
-            rel.object_start_idx = rel.object_start_idx - start_idx
-            rel.object_end_idx = rel.object_end_idx - start_idx
-        sentences.append(
-            Sentence(
-                start_idx=start_idx,
-                from_article=article,
-                text=sentence,
-                entities=sentence_entities,
-                relations=sentence_relations,
-            )
-        )
-        last_idx = end_idx
-    return sentences
-
-
-def annotated_sentences_to_article(
-    sentences: list[Sentence], metadata: Metadata
-) -> AnnotatedArticle:
-    all_entities: list[Entity] = []
-    all_relations: list[FullRelation] = []
-    for sentence in sentences:
-        if sentence.entities is not None:
-            for sen in sentence.entities:
-                sen.start_idx = sen.start_idx + sentence.start_idx
-                sen.end_idx = sen.end_idx + sentence.start_idx
-            all_entities.extend(sentence.entities)
-        if sentence.relations is not None:
-            for rel in sentence.relations:
-                rel.subject_start_idx = rel.subject_start_idx + sentence.start_idx
-                rel.subject_end_idx = rel.subject_end_idx + sentence.start_idx
-                rel.object_start_idx = rel.object_start_idx + sentence.start_idx
-                rel.object_end_idx = rel.object_end_idx + sentence.start_idx
-            all_relations.extend(sentence.relations)
-    return AnnotatedArticle(
-        metadata=metadata,
-        entities=all_entities,
-        relations=all_relations,
-    )
-
 
 from abc import ABC, abstractmethod
 
@@ -212,6 +63,8 @@ class AnnotatorHelper:
         add_rag=False,
         reorder=False,
         add_entity_labels=False,
+        naive_annotations=False,
+        only_naive_annotations=False,
         score_reweights={
             "platinum": 1.0,
             "gold": 0.9,
@@ -243,6 +96,8 @@ class AnnotatorHelper:
 
         self.top_k = top_k
         self.few_shot = add_few_shot
+        self.naive_annotations = naive_annotations
+        self.only_naive_annotations = only_naive_annotations
         self.rag = add_rag
         self.score_reweights = score_reweights
         self.reorder = reorder
@@ -251,6 +106,7 @@ class AnnotatorHelper:
         self.loaded_sentences: dict[str, Sentence] = {}
         self.embeddings: dict[str, th.Tensor] = {}
         self.embeddings_sentences: dict[str, th.Tensor] = {}
+        self.concepts: dict[str, ConceptDefinition] = {}
 
     @classmethod
     def relations_to_str(self, relations: list[Relation], sep="\n", sep_rel="|"):
@@ -327,6 +183,49 @@ class AnnotatorHelper:
                 },
                 f,
             )
+
+    def load_concepts(
+        self, path: Path = Path("./data/Annotations/uri_collection_concepts.json")
+    ):
+        with open(path, "r") as f:
+            data = json.load(f)
+        self.concepts = {}
+        if isinstance(data, list):
+            for item in data:
+                self.concepts[item["uri"]] = ConceptDefinition.model_validate(item)
+        else:
+            concepts_list = []
+            for concept, dt in data.items():
+                info = [
+                    i
+                    for i in dt["names"]
+                    if i is not None and i not in ["names", "definitions"]
+                ]
+                # find all entities linked to this concept and find its type
+                label = None
+                counter = 0
+                for art in self.loaded_articles.values():
+                    for entity in art.entities or []:
+                        if entity.uri == concept:
+                            label = entity.label
+                            counter += 1
+
+                concepts_list.append(
+                    {
+                        "uri": concept,
+                        "names_doc": " ".join(info),
+                        "names": dt["names"] if dt["names"] else [],
+                        "type": label,
+                        "cnt": counter,
+                    }
+                )
+                concepts = pd.DataFrame(concepts_list)
+                concepts.to_json(
+                    Path("./data/Annotations/uri_collection_concepts.json"),
+                    orient="records",
+                )
+            for item in concepts_list:
+                self.concepts[item["uri"]] = ConceptDefinition.model_validate(item)
 
     def __message_to_langchain(self, message: ChatCompletionRequestMessage):
         if message["role"] == "system":
@@ -414,29 +313,63 @@ class AnnotatorHelper:
             info = [
                 i for i in info if i is not None and i not in ["names", "definitions"]
             ]
+            # find all entities linked to this concept and find its type
+            label = None
+            for art in self.loaded_articles.values():
+                for entity in art.entities or []:
+                    if entity.uri == concept:
+                        label = entity.label
+                        break
+                if label is not None:
+                    break
+
             concepts_list.append(
-                {
-                    "concept": concept,
-                    "names": " ".join(info),
-                }
+                {"concept": concept, "names": " ".join(info), "type": label}
             )
         concepts_df = pd.DataFrame(concepts_list)
-        vectorizer = TfidfVectorizer()
+        vectorizer = TfidfVectorizer(
+            lowercase=True,
+            stop_words="english",
+            strip_accents="ascii",
+            ngram_range=(1, 2),
+        )
         concept_vectors = vectorizer.fit_transform(concepts_df["names"])
 
-        def find_best_uri_for_text(t: str) -> str | None:
+        def find_best_uri_for_text(t: str, label: str | None) -> str | None:
             text_vector = vectorizer.transform([t])
-            similarities = cosine_similarity(text_vector, concept_vectors)
-            best_idx = np.argmax(similarities)
-            best_concept = concepts_df.iloc[best_idx]["concept"]
+            filter = (
+                (concepts_df["type"] == label) | (concepts_df["type"].isna())
+            ).to_numpy()
+            filtered_concepts = concepts_df[filter]
+            filtered_concept_vectors = concept_vectors[filter]
+            similarities = cosine_similarity(text_vector, filtered_concept_vectors)
+            n_candidates = 5
+            best_idx = np.argsort(similarities[0])[-n_candidates:None]
+            print(
+                f"--- Finding concept for text: '{t}' with label: '{label}'. Top {n_candidates} candidates:"
+            )
+            for idx in best_idx:
+                print(
+                    f" -- Candidate concept: {filtered_concepts.iloc[idx]['concept']}, similarity: {similarities[0][idx]}, type: {filtered_concepts.iloc[idx]['names']}, concept type: {filtered_concepts.iloc[idx]['type']}, text: {t}, label: {label}"
+                )
+
+            best_concept = filtered_concepts.iloc[best_idx[-1]]["concept"]
             return best_concept
 
         for id, article in annotated_articles.items():
             for ent in article.entities or []:
-                ent.uri = find_best_uri_for_text(ent.text_span)
+                if ent.uri is not None:
+                    continue
+                ent.uri = find_best_uri_for_text(ent.text_span, ent.label)
             for rel in article.relations or []:
-                rel.subject_uri = find_best_uri_for_text(rel.subject_text_span)
-                rel.object_uri = find_best_uri_for_text(rel.object_text_span)
+                if rel.subject_uri is not None:
+                    continue
+                rel.subject_uri = find_best_uri_for_text(
+                    rel.subject_text_span, rel.subject_label
+                )
+                rel.object_uri = find_best_uri_for_text(
+                    rel.object_text_span, rel.object_label
+                )
 
 
 T = TypeVar("T")
@@ -450,6 +383,10 @@ class Annotator(ABC, Generic[T]):
         else:
             self.model = helper.model
 
+    @abstractmethod
+    def apply_annotations(self, sentence: Sentence, annotations: list[T]):
+        pass
+
     def annotate(self, articles: dict[str, Metadata]) -> dict[str, AnnotatedArticle]:
         annotated_articles = {}
         progress = tqdm(articles.items(), desc="Annotating articles")
@@ -457,37 +394,39 @@ class Annotator(ABC, Generic[T]):
             sentences = article_to_sentences(article)
 
             for sentence in sentences:
-                sentence_id = f"{id}_{sentence.start_idx}"
-                if len(sentence.text.strip()) == 0:
-                    continue
-                phrases = extract_noun_phrases(sentence.text)
-                prompts = [*self.helper.system_message]
-                if self.helper.few_shot:
-                    for ex in self.helper.example_messages:
-                        prompts.extend(ex)
-                if self.helper.rag and len(self.helper.loaded_articles) > 0:
-                    similar_sentences = self.helper.find_similar_sentences(
-                        sentence.text, sentence_id, ensure_relations_entities=True
-                    )
-                    similar_sentence_messages = [
-                        self.prompt_and_response(similar_sentence)
-                        for similar_sentence in similar_sentences
-                    ]
-                    for ex in similar_sentence_messages:
-                        prompts.extend(ex)
+                annotations: list[T] = []
+                if self.helper.naive_annotations:
+                    annotations.extend(self.add_naive_annotations(sentence))
+                if not self.helper.only_naive_annotations:
+                    sentence_id = f"{id}_{sentence.start_idx}"
+                    if len(sentence.text.strip()) == 0:
+                        continue
+                    phrases = extract_noun_phrases(sentence.text)
+                    prompts = [*self.helper.system_message]
+                    if self.helper.few_shot:
+                        for ex in self.helper.example_messages:
+                            prompts.extend(ex)
+                    if self.helper.rag and len(self.helper.loaded_articles) > 0:
+                        similar_sentences = self.helper.find_similar_sentences(
+                            sentence.text, sentence_id, ensure_relations_entities=True
+                        )
+                        similar_sentence_messages = [
+                            self.prompt_and_response(similar_sentence)
+                            for similar_sentence in similar_sentences
+                        ]
+                        for ex in similar_sentence_messages:
+                            prompts.extend(ex)
 
-                messages = prompts + [self.__prompt_sentence(sentence)]
-                chat_response = self.model.create_chat_completion(
-                    messages,
-                    max_tokens=self.helper.gen_tokens,
-                    grammar=self.grammar(phrases),
-                )
-                response = chat_response["choices"][-1]["message"]["content"]
-                structure = self.response_to_structure(response, sentence, phrases)
-                if isinstance(self, EntityAnnotator):
-                    sentence.entities = structure
-                elif isinstance(self, RelationAnnotator):
-                    sentence.relations = structure
+                    messages = prompts + [self.__prompt_sentence(sentence)]
+                    chat_response = self.model.create_chat_completion(
+                        messages,
+                        max_tokens=self.helper.gen_tokens,
+                        grammar=self.grammar(phrases),
+                    )
+                    response = chat_response["choices"][-1]["message"]["content"]
+                    structure = self.response_to_structure(response, sentence, phrases)
+                    annotations.extend(structure)
+                self.apply_annotations(sentence, annotations)
             annotated_article = annotated_sentences_to_article(sentences, article)
             annotated_articles[id] = annotated_article
             progress.set_postfix({"id": id})
@@ -519,6 +458,9 @@ class Annotator(ABC, Generic[T]):
     @abstractmethod
     def grammar(self, phrases: dict[str, AnnotationSpan]) -> LlamaGrammar:
         pass
+
+    def add_naive_annotations(self, sentence: Sentence) -> list[T]:
+        return []
 
     def prompt_and_response(self, sent: Sentence) -> list[ChatCompletionRequestMessage]:
         return [
@@ -553,11 +495,65 @@ class EntityAnnotator(Annotator[Entity]):
     def __init__(self, helper: AnnotatorHelper, model: Llama = None):
         super().__init__(helper, model)
 
+    def apply_annotations(self, sentence, annotations):
+        sentence.entities = annotations
+
     def __prompt_article(self, metadata: Metadata) -> ChatCompletionRequestMessage:
         return {
             "role": "user",
             "content": f"{metadata.title}\n{metadata.abstract}",
         }
+
+    def add_naive_annotations(
+        self, sentence: Sentence, do_filtering: bool = False
+    ) -> list[Entity]:
+        # go through all concept, and find direct string matches in the sentence, and add them as entities with the concept type as label
+        annotated_entities: list[tuple[int, Entity]] = []
+
+        for concept in self.helper.concepts.values():
+            for name in concept.names:
+                if name in sentence.text:
+                    if len(name.strip()) <= 2:
+                        continue
+                    all_matches = [
+                        m for m in re.finditer(rf"{re.escape(name)}", sentence.text)
+                    ]
+                    for match in all_matches:
+                        start_idx = match.start()
+                        end_idx = match.end() - 1
+                        annotated_entities.append(
+                            (
+                                concept.cnt,
+                                Entity(
+                                    label=concept.type
+                                    or "DDF",  # default to DDF if no type is given
+                                    text_span=name,
+                                    start_idx=start_idx,
+                                    end_idx=end_idx,
+                                    uri=concept.uri,
+                                    location="title" if sentence.title else "abstract",
+                                ),
+                            )
+                        )
+        # find 'sub-entities' that are fully contained in another entity and remove them
+        filtered_entities: list[Entity] = []
+        if do_filtering:
+            for e in annotated_entities:
+                cnt, ent = e  # Unpack the count and entity
+                # Check if this entity is fully contained in any other entity
+                # and if the count is less than the other entity's count (to keep the most frequent one in case of ties)
+                if any(
+                    ent.start_idx >= other_ent.start_idx
+                    and ent.end_idx <= other_ent.end_idx
+                    # and cnt < other_cnt
+                    for other_cnt, other_ent in annotated_entities
+                    if other_ent != ent
+                ):
+                    continue
+                filtered_entities.append(ent)
+        else:
+            filtered_entities = [ent for _, ent in annotated_entities]
+        return filtered_entities
 
     def sentence_to_response(self, sent: Sentence) -> str:
         return "\n".join([f"{ent.label} ({ent.text_span})" for ent in sent.entities])
@@ -565,7 +561,7 @@ class EntityAnnotator(Annotator[Entity]):
     def response_to_structure(
         self, response: str, sent: Sentence, phrases: dict[str, AnnotationSpan]
     ) -> list[Entity]:
-        entities = []
+        resolved_entities = []
         for line in response.split("\n"):
             match = re.match(r"(.+?)\s*\((.+)\)", line)
             if match:
@@ -582,7 +578,7 @@ class EntityAnnotator(Annotator[Entity]):
                     if start_idx is not None
                     else text_span_raw
                 )
-                entities.append(
+                resolved_entities.append(
                     Entity(
                         label=label,
                         text_span=text_span,
@@ -591,11 +587,11 @@ class EntityAnnotator(Annotator[Entity]):
                         location="title" if sent.title else "abstract",
                     )
                 )
-        return entities
+        return resolved_entities
 
     def grammar(self, phrases: dict[str, AnnotationSpan]) -> LlamaGrammar:
-        entities = [lbl["label"] for lbl in entity_labels]
-        entity_type_grammar = "|".join([f'"{e}"' for e in entities])
+        resolved_entities = [lbl["label"] for lbl in entity_labels]
+        entity_type_grammar = "|".join([f'"{e}"' for e in resolved_entities])
         entity_str_grammar = "|".join([f'"{n}"' for n in phrases.keys()])
         if len(entity_str_grammar) == 0:
             entity_str_grammar = "arbitrary-str"
@@ -612,6 +608,9 @@ ent-list ::= entity ([\n] entity)*
 class RelationAnnotator(Annotator):
     def __init__(self, helper: AnnotatorHelper, model: Llama = None):
         super().__init__(helper, model)
+
+    def apply_annotations(self, sentence, annotations):
+        sentence.relations = annotations
 
     def grammar(self, phrases: dict[str, AnnotationSpan]) -> LlamaGrammar:
         relationships = []

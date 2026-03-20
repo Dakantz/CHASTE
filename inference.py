@@ -1,11 +1,8 @@
 # %%
 from llama_cpp import Llama
 
-from constrerl.annotator import (
-    AnnotatedArticle,
-    AnnotatorHelper,
-    prepare_for_eval,
-)
+from constrerl.annotator import AnnotatedArticle, AnnotatorHelper, AnnotationTypes
+from constrerl.utils import prepare_for_eval
 
 # %%
 import argparse
@@ -31,6 +28,8 @@ if __name__ == "__main__":
     parser.add_argument("--gen-tokens", type=int, default=512)
     parser.add_argument("--ctx", type=int, default=8196)
     parser.add_argument("--add-rag", default=False, action="store_true")
+    parser.add_argument("--add-naive", default=False, action="store_true")
+    parser.add_argument("--only-naive", default=False, action="store_true")
     args = parser.parse_args()
     print("Starting with", args)
     model: Llama = None
@@ -62,6 +61,8 @@ if __name__ == "__main__":
         model=model,
         gen_tokens=args.gen_tokens,
         add_rag=args.add_rag,
+        naive_annotations=args.add_naive,
+        only_naive=args.only_naive,
         top_k=args.top_k,
     )
     print("Loading articles from", data_path)
@@ -76,10 +77,11 @@ if __name__ == "__main__":
     print("-->> Loaded eval set articles:", len(eval_set))
 
     # %%
+
     annotations_types = (
-        [args.type]
+        [AnnotationTypes.from_str(args.type)]
         if args.type in ["entities", "relations"]
-        else ["entities", "relations"]
+        else [AnnotationTypes.ENTITY, AnnotationTypes.RELATION]
     )
     print("Annotating with types", annotations_types)
     annotations: dict[str, AnnotatedArticle] = annotator.annotate(

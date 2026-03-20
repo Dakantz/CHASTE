@@ -1,3 +1,4 @@
+import enum
 from html import entities
 from itertools import count
 from pathlib import Path
@@ -48,6 +49,21 @@ ANNOTATION_SYSTEM_PROMPT = (
 )
 
 from abc import ABC, abstractmethod
+
+
+class AnnotationTypes(enum.Enum):
+    ENTITY = "entities"
+    RELATION = "relations"
+
+    @classmethod
+    def from_str(cls, s: str):
+        s = s.lower()
+        if s == "entities":
+            return cls.ENTITY
+        elif s == "relations":
+            return cls.RELATION
+        else:
+            raise ValueError(f"Unknown annotation type: {s}")
 
 
 class AnnotatorHelper:
@@ -272,17 +288,19 @@ class AnnotatorHelper:
     def annotate(
         self,
         articles: dict[str, Metadata],
-        annotate: list[str] = [
-            "entities",
-            "relations",
+        annotate: list[AnnotationTypes] = [
+            AnnotationTypes.ENTITY,
+            AnnotationTypes.RELATION,
         ],
     ) -> dict[str, AnnotatedArticle]:
         annotated_articles: dict[str, AnnotatedArticle] = {}
         annotators: list[Annotator] = []
-        if "entities" in annotate:
-            annotators.append(EntityAnnotator(self, self.entities_model))
-        if "relations" in annotate:
-            annotators.append(RelationAnnotator(self, self.relation_model))
+        for annotator_mappper in annotator_mapping:
+            if annotator_mappper in annotate:
+                annotators.append(
+                    annotator_mapping[annotator_mappper](self, self.entities_model)
+                )
+
         for annotator in annotators:
             annotated_articles_by_annotator = annotator.annotate(articles)
             if isinstance(annotator, EntityAnnotator):
@@ -702,41 +720,7 @@ entity-str ::= {entity_str_grammar}
         return relations
 
 
-def load_train(file_path: str):
-    with open(file_path, "r") as file:
-        data = json.load(file)
-    articles: dict[str, AnnotatedArticle] = {}
-    for id, article in data.items():
-        articles[id] = AnnotatedArticle.model_validate(article)
-    return articles
-
-
-def load_test(file_path: str):
-    with open(file_path, "r") as file:
-        data = json.load(file)
-    articles: dict[str, Metadata] = {}
-    for id, article in data.items():
-        articles[id] = Metadata.model_validate(article)
-    return articles
-
-
-E = TypeVar("E", bound=BaseModel)
-
-
-def unique_model(ents: list[E], model: type[E]) -> list[E]:
-
-    unique_ents = set(ent.model_dump_json() for ent in ents)
-    return [model.model_validate_json(ent) for ent in unique_ents]
-
-
-def prepare_for_eval(articles: dict[str, AnnotatedArticle]):
-    prepared = {}
-    for id, article in articles.items():
-        entities_unique = unique_model(article.entities or [], Entity)
-        relations_unique = unique_model(article.relations or [], Relation)
-        prepared[id] = {
-            "mention_level_relations": [rel.model_dump() for rel in relations_unique],
-            "concept_level_relations": [rel.model_dump() for rel in relations_unique],
-            "entities": [ent.model_dump() for ent in entities_unique],
-        }
-    return prepared
+annotator_mapping = {
+    "entities": EntityAnnotator,
+    "relations": RelationAnnotator,
+}

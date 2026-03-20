@@ -74,11 +74,11 @@ class NERDEntity(BaseModel):
 
 class Metadata(BaseModel):
     title: str
-    author: str | None | float
-    journal: str
-    year: int
     abstract: str
-    annotator: str
+    author: str | None | float = None
+    journal: str | None = None
+    year: int | None = None
+    annotator: str | None = None
 
 
 class AnnotatedArticle(BaseModel):

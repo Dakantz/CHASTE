@@ -2,6 +2,7 @@ import enum
 from html import entities
 from itertools import count
 from pathlib import Path
+from turtle import pos
 
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 
@@ -82,6 +83,8 @@ class AnnotatorHelper:
         naive_annotations=False,
         naive_only=False,
         naive_filter=False,
+        possible_labels: list[str] | None = None,
+        possible_relations: list[tuple[str, str, str]] | None = None,
         score_reweights={
             "platinum": 1.0,
             "gold": 0.9,
@@ -129,6 +132,18 @@ class AnnotatorHelper:
         self.embeddings: dict[str, th.Tensor] = {}
         self.embeddings_sentences: dict[str, th.Tensor] = {}
         self.concepts: dict[str, ConceptDefinition] = {}
+        if possible_labels is None:
+            self.possible_labels = [e["label"] for e in entity_labels]
+        else:
+            self.possible_labels = possible_labels
+        if possible_relations is None:
+            possible_relations = []
+            for rel in relation_labels:
+                for subj in rel["heads"]:
+                    for predicate in rel["predicate"]:
+                        for obj in rel["tails"]:
+                            possible_relations.append((subj, predicate, obj))
+        self.possible_relations = possible_relations
 
     @classmethod
     def relations_to_str(self, relations: list[Relation], sep="\n", sep_rel="|"):
@@ -301,8 +316,9 @@ class AnnotatorHelper:
     ) -> dict[str, AnnotatedArticle]:
         annotated_articles: dict[str, AnnotatedArticle] = {}
         annotators: list[Annotator] = []
-        for k in annotator_mapping:
-            if k in annotate:
+        annotation_values = [at.value for at in annotate]
+        for k in annotator_mapping.keys():
+            if k.value in annotation_values:
                 annotators.append(annotator_mapping[k](self, self.entities_model))
 
         for annotator in annotators:
@@ -618,7 +634,7 @@ class EntityAnnotator(Annotator[Entity]):
         return resolved_entities
 
     def grammar(self, phrases: dict[str, AnnotationSpan]) -> LlamaGrammar:
-        resolved_entities = [lbl["label"] for lbl in entity_labels]
+        resolved_entities = self.helper.possible_labels
         entity_type_grammar = "|".join([f'"{e}"' for e in resolved_entities])
         entity_str_grammar = "|".join([f'"{n}"' for n in phrases.keys()])
         if len(entity_str_grammar) == 0:
@@ -641,18 +657,14 @@ class RelationAnnotator(Annotator):
         sentence.relations = annotations
 
     def grammar(self, phrases: dict[str, AnnotationSpan]) -> LlamaGrammar:
-        relationships = []
-        for rel in relation_labels:
-            for subj in rel["heads"]:
-                for predicate in rel["predicate"]:
-                    for obj in rel["tails"]:
-                        relationships.append(
-                            {
-                                "subject_label": subj,
-                                "predicate": predicate,
-                                "object_label": obj,
-                            }
-                        )
+        relationships = [
+            {
+                "subject_label": subj,
+                "predicate": predicate,
+                "object_label": obj,
+            }
+            for subj, predicate, obj in self.helper.possible_relations
+        ]
         relationships_grammars = []
         for rel in relationships:
             relationships_grammars.append(

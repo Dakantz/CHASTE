@@ -38,14 +38,21 @@ def unique_model(ents: list[E], model: type[E]) -> list[E]:
     return [model.model_validate_json(ent) for ent in unique_ents]
 
 
+class EvalData(BaseModel):
+    mention_level_relations: list[Relation]
+    concept_level_relations: list[Relation]
+    entities: list[Entity]
+
+
 def prepare_for_eval(articles: dict[str, AnnotatedArticle]):
     prepared = {}
     for id, article in articles.items():
         entities_unique = unique_model(article.entities or [], Entity)
         relations_unique = unique_model(article.relations or [], Relation)
-        prepared[id] = {
-            "mention_level_relations": [rel.model_dump() for rel in relations_unique],
-            "concept_level_relations": [rel.model_dump() for rel in relations_unique],
-            "entities": [ent.model_dump() for ent in entities_unique],
-        }
+        eval_data = EvalData(
+            mention_level_relations=relations_unique,
+            concept_level_relations=relations_unique,
+            entities=entities_unique,
+        )
+        prepared[id] = eval_data.model_dump()
     return prepared

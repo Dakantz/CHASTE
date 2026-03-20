@@ -16,3 +16,5 @@ staging_ontug
 *.meta
 staging
 *.xlsx
+
+*.tex

@@ -53,6 +53,7 @@ annotation_type=${annotation_types[($SLURM_ARRAY_TASK_ID/4)%3]}
 annotation_model_postfix=""
 if [ "$annotation_type" != "base" ]; then
     annotation_model_postfix="-lora-$annotation_type"
+    out_file="$out_file-lora-$annotation_type"
 fi
 FLAGS="$FLAGS --type $annotation_type"
 FLAGS="$FLAGS --model-spec $quant_folder/$model_type$annotation_model_postfix.gguf"
@@ -64,12 +65,11 @@ echo "Using model $quant_folder/$model_type$annotation_model_postfix.gguf"
 out_file="$out_file-$model_type-$annotation_type"
 
 if [ $(($SLURM_ARRAY_TASK_ID/12)) -eq 0 ]; then
-    FLAGS="$FLAGS --gen-tokens=2048"
-    echo "Using --gen-tokens=2048 (long)" 
-    out_file="$out_file-long" 
+    FLAGS="$FLAGS --add-naive"
+    echo "Using --add-naive" 
+    out_file="$out_file-naive" 
 else
-    FLAGS="$FLAGS --gen-tokens=512"
-    echo "Using --gen-tokens=512 (short)"
+    echo "No --add-naive"
 fi
 out_file="$out_file.json"
 

@@ -1,4 +1,6 @@
 # %%
+from email.policy import default
+
 from llama_cpp import Llama
 
 from constrerl.annotator import AnnotatedArticle, AnnotatorHelper, AnnotationTypes
@@ -29,7 +31,8 @@ if __name__ == "__main__":
     parser.add_argument("--ctx", type=int, default=8196)
     parser.add_argument("--add-rag", default=False, action="store_true")
     parser.add_argument("--add-naive", default=False, action="store_true")
-    parser.add_argument("--only-naive", default=False, action="store_true")
+    parser.add_argument("--naive-filter", default=False, action="store_true")
+    parser.add_argument("--naive-only", default=False, action="store_true")
     args = parser.parse_args()
     print("Starting with", args)
     model: Llama = None
@@ -37,6 +40,7 @@ if __name__ == "__main__":
         # case "openai":
         #     # llm = init_chat_model("ft:gpt-4o-mini-2024-07-18:tu-graz-hereditary:gutbrain-ie-finetune:B5qr9cGV", model_provider="openai")
         #     llm = init_chat_model("gpt-4o-mini-2024-07-18", model_provider="openai")
+
         case "llama":
             if args.model_spec.endswith(".gguf"):
                 model_path = args.model_spec  # "quants/llama-3-2-1B-instruct-lora.gguf"
@@ -55,6 +59,11 @@ if __name__ == "__main__":
                     n_ctx=args.ctx,
                     temperature=0.1,
                 )
+        case "naive":
+            print("Using naive annotator, no model will be loaded")
+        # default:
+        case _:
+            print("Unknown model provider", args.model_provider)
     data_path = args.data_path
     out_path = Path(args.out_path) / args.out_file
     annotator = AnnotatorHelper(
@@ -62,7 +71,8 @@ if __name__ == "__main__":
         gen_tokens=args.gen_tokens,
         add_rag=args.add_rag,
         naive_annotations=args.add_naive,
-        only_naive=args.only_naive,
+        naive_only=args.naive_only,
+        naive_filter=args.naive_filter,
         top_k=args.top_k,
     )
     print("Loading articles from", data_path)

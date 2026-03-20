@@ -80,7 +80,8 @@ class AnnotatorHelper:
         reorder=False,
         add_entity_labels=False,
         naive_annotations=False,
-        only_naive_annotations=False,
+        naive_only=False,
+        naive_filter=False,
         score_reweights={
             "platinum": 1.0,
             "gold": 0.9,
@@ -107,13 +108,18 @@ class AnnotatorHelper:
         self.example_messages = [*self.system_message]
 
         self.embedding_model = SentenceTransformer(embedding_model).to(
-            "cuda" if th.cuda.is_available() else "mps"
+            "cuda"
+            if th.cuda.is_available()
+            else "mps"
+            if th.backends.mps.is_available()
+            else "cpu"
         )
 
         self.top_k = top_k
         self.few_shot = add_few_shot
         self.naive_annotations = naive_annotations
-        self.only_naive_annotations = only_naive_annotations
+        self.naive_only = naive_only
+        self.naive_filter = naive_filter
         self.rag = add_rag
         self.score_reweights = score_reweights
         self.reorder = reorder
@@ -295,11 +301,9 @@ class AnnotatorHelper:
     ) -> dict[str, AnnotatedArticle]:
         annotated_articles: dict[str, AnnotatedArticle] = {}
         annotators: list[Annotator] = []
-        for annotator_mappper in annotator_mapping:
-            if annotator_mappper in annotate:
-                annotators.append(
-                    annotator_mapping[annotator_mappper](self, self.entities_model)
-                )
+        for k in annotator_mapping:
+            if k in annotate:
+                annotators.append(annotator_mapping[k](self, self.entities_model))
 
         for annotator in annotators:
             annotated_articles_by_annotator = annotator.annotate(articles)
@@ -414,8 +418,12 @@ class Annotator(ABC, Generic[T]):
             for sentence in sentences:
                 annotations: list[T] = []
                 if self.helper.naive_annotations:
-                    annotations.extend(self.add_naive_annotations(sentence))
-                if not self.helper.only_naive_annotations:
+                    annotations.extend(
+                        self.add_naive_annotations(
+                            sentence, do_filtering=self.helper.naive_filter
+                        )
+                    )
+                if not self.helper.naive_only:
                     sentence_id = f"{id}_{sentence.start_idx}"
                     if len(sentence.text.strip()) == 0:
                         continue
@@ -477,7 +485,9 @@ class Annotator(ABC, Generic[T]):
     def grammar(self, phrases: dict[str, AnnotationSpan]) -> LlamaGrammar:
         pass
 
-    def add_naive_annotations(self, sentence: Sentence) -> list[T]:
+    def add_naive_annotations(
+        self, sentence: Sentence, do_filtering: bool = False
+    ) -> list[T]:
         return []
 
     def prompt_and_response(self, sent: Sentence) -> list[ChatCompletionRequestMessage]:
@@ -721,6 +731,6 @@ entity-str ::= {entity_str_grammar}
 
 
 annotator_mapping = {
-    "entities": EntityAnnotator,
-    "relations": RelationAnnotator,
+    AnnotationTypes.ENTITY: EntityAnnotator,
+    AnnotationTypes.RELATION: RelationAnnotator,
 }

@@ -60,7 +60,7 @@ dataset:
 
 seed: 0
 shuffle: True
-batch_size: 2
+batch_size: 3
 
 # Optimizer and Scheduler
 optimizer:
@@ -78,7 +78,7 @@ loss:
 # Training
 epochs: 3
 max_steps_per_epoch: null
-gradient_accumulation_steps: 8  # Use to increase effective batch size
+gradient_accumulation_steps: 16  # Use to increase effective batch size
 compile: True  # torch.compile the model + loss, True increases speed + decreases memory
 
 # Logging

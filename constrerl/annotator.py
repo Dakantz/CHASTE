@@ -299,6 +299,9 @@ class AnnotatorHelper:
             AnnotationTypes.RELATION,
         ],
     ) -> dict[str, AnnotatedArticle]:
+        if self.naive_annotations and len(self.concepts) == 0:
+            print("Loading concepts for naive annotation...")
+            self.load_concepts()
         annotated_articles: dict[str, AnnotatedArticle] = {}
         annotators: list[Annotator] = []
         for k in annotator_mapping:

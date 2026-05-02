@@ -18,7 +18,12 @@ from .annotation_model import (
     AnnotatedArticle,
     Relation,
 )
-from llama_cpp import Llama, ChatCompletionRequestMessage, LlamaGrammar
+from llama_cpp import (
+    Llama,
+    ChatCompletionRequestMessage,
+    LlamaGrammar,
+    llama_chat_format,
+)
 from tqdm import tqdm
 import json
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -33,7 +38,7 @@ import re
 from sklearn.metrics.pairwise import cosine_similarity
 
 from typing import TypeVar, Generic
-
+from .beam_search.beam_search import BeamSearchNode, BeamSearchConfig
 from .sentences import (
     Sentence,
     AnnotationSpan,
@@ -85,6 +90,7 @@ class AnnotatorHelper:
         naive_filter=False,
         possible_labels: list[str] | None = None,
         possible_relations: list[tuple[str, str, str]] | None = None,
+        beam_search: BeamSearchConfig | None = None,
         score_reweights={
             "platinum": 1.0,
             "gold": 0.9,
@@ -97,6 +103,7 @@ class AnnotatorHelper:
         self.entities_model = model
         self.langchain = langchain
         self.gen_tokens = gen_tokens
+        self.beam_search = beam_search
         if add_entity_labels:
             system_prompt = (
                 system_prompt
@@ -110,7 +117,9 @@ class AnnotatorHelper:
         ]
         self.example_messages = [*self.system_message]
 
-        self.embedding_model = SentenceTransformer(embedding_model).to(
+        self.embedding_model = SentenceTransformer(
+            embedding_model, local_files_only=True
+        ).to(
             "cuda"
             if th.cuda.is_available()
             else "mps"
@@ -428,6 +437,62 @@ class Annotator(ABC, Generic[T]):
     def apply_annotations(self, sentence: Sentence, annotations: list[T]):
         pass
 
+    def completion(
+        self, messages: list[ChatCompletionRequestMessage], grammar: LlamaGrammar
+    ):
+        if self.helper.beam_search is not None:
+            response = self.completion_beam_search(
+                messages=messages,
+                grammar=grammar,
+                max_tokens=self.helper.gen_tokens,
+            )
+        response = self.model.create_chat_completion(
+            messages,
+            max_tokens=self.helper.gen_tokens,
+            grammar=grammar,
+        )
+        return response
+
+    def completion_beam_search(
+        self,
+        messages: list[ChatCompletionRequestMessage],
+        grammar: LlamaGrammar,
+        max_tokens=128,
+    ):
+
+        # get the formatter
+        input_message = llama_chat_format.format_llama3(messages)
+        prompt: str = input_message.prompt
+
+        input_tokens: list[int] = self.model.tokenizer().tokenize(
+            prompt.encode("utf-8")
+        )
+        new_tokens = []
+        for t in tqdm(range(max_tokens), "Beam-Searching tokens"):
+            root = BeamSearchNode(
+                self.model, grammar=grammar, cfg=self.helper.beam_search
+            )
+            root.explore_tree(input_tokens + new_tokens)
+            t_p, t_nd = root.best_tree()
+            skip_tokens = None
+            if self.helper.beam_search.k_progress is not None and t_p is not None:
+                skip_tokens = None
+            elif self.helper.beam_search.skip_tokens is not None:
+                skip_tokens = self.helper.beam_search.skip_tokens
+            else:
+                skip_tokens = 1
+            new_tokens = new_tokens + t_nd.new_tokens[:skip_tokens]
+
+            added_str = self.model.tokenizer().decode(t_nd.new_tokens[:skip_tokens])
+            if self.model.metadata.get("tokenizer.ggml.eos_token_id", -1) in new_tokens:
+                break
+            print(
+                f"Decoded beam search output: {added_str=} {skip_tokens=} {t_nd.new_str=}"
+            )
+        decoded = self.model.tokenizer().decode(new_tokens)
+        print(f"Final beam search output: {decoded=}")
+        return decoded
+
     def annotate(self, articles: dict[str, Metadata]) -> dict[str, AnnotatedArticle]:
         annotated_articles = {}
         progress = tqdm(articles.items(), desc="Annotating articles")
@@ -463,10 +528,9 @@ class Annotator(ABC, Generic[T]):
                             prompts.extend(ex)
 
                     messages = prompts + [self.__prompt_sentence(sentence)]
-                    chat_response = self.model.create_chat_completion(
-                        messages,
-                        max_tokens=self.helper.gen_tokens,
-                        grammar=self.grammar(phrases),
+
+                    chat_response = self.completion(
+                        messages=messages, grammar=self.grammar(phrases)
                     )
                     response = chat_response["choices"][-1]["message"]["content"]
                     structure = self.response_to_structure(response, sentence, phrases)

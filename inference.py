@@ -38,6 +38,9 @@ if __name__ == "__main__":
     parser.add_argument("--add-naive", default=False, action="store_true")
     parser.add_argument("--naive-filter", default=False, action="store_true")
     parser.add_argument("--naive-only", default=False, action="store_true")
+    parser.add_argument(
+        "--beam-search", default="greedy", choices=["end", "shallow", "greedy"]
+    )
     args = parser.parse_args()
     print("Starting with", args)
     model: Llama = None

@@ -90,7 +90,7 @@ class AnnotatorHelper:
         naive_filter=False,
         possible_labels: list[str] | None = None,
         possible_relations: list[tuple[str, str, str]] | None = None,
-        beam_search=BeamSearchConfig(),
+        beam_search: BeamSearchConfig | None = None,
         score_reweights={
             "platinum": 1.0,
             "gold": 0.9,

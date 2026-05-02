@@ -150,21 +150,11 @@ class BeamSearchNode:
         filtered_logits: dict[int, float] = {}
 
         if response["choices"][0]["finish_reason"] == "stop":
-            print(
-                f"Finish reason stop reached at {depth=} with {tokens=} and {self.new_str=}, generated response: {response}"
-            )
             self.children = [self.create_child(self.eos_token_id(), 0)]
             return
-        if len(logits) == 0:
-            print(
-                f"No logits returned at {depth=} and {self.new_str=} , response: {response['choices'][0]['text']} probs {response['choices'][0]['logprobs']['top_logprob_tokens']}, {oversample=} with {tokens=} "
-            )
-        filtered_logits = self.filter_logits(logits[0])
 
+        filtered_logits = self.filter_logits(logits[0])
         if len(filtered_logits) == 0:
-            print(
-                f"No valid tokens found at reached at {depth=}  on str {self.new_str=} resp txt {response['choices'][0]['text']}, setting to filtered_logits to {filtered_logits=} (from logits {logits=}) with {tokens=} and oversample {oversample=}"
-            )
             resp_detokenized = self.model.tokenizer().tokenize(
                 response["choices"][0]["text"].encode("utf-8"),
                 special=True,
@@ -193,16 +183,11 @@ class BeamSearchNode:
             assert len(child.new_tokens) == depth + 1
             self.children.append(child)
             if child.is_end():
-                print(
-                    f"Reached end token {self.cfg.end_token=} or EOS in {child.new_str=}"
-                )
                 continue
             if depth <= self.cfg.max_depth or top_k <= 0 or skip_depth:
-                if depth > 20:
-                    print(f"Depth {depth} reached with {child.new_str=}")
                 child.explore_tree(child.input_tokens + child.new_tokens, depth + 1)
-            else:
-                print(f"Max depth reached at {depth=}, {child.new_str=}")
+            # else:
+            #     print(f"Max depth reached at {depth=}, {child.new_str=}")
 
     def best_tree(self, acc_log_p=0):
         if len(self.children) == 0:

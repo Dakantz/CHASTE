@@ -118,7 +118,7 @@ class AnnotatorHelper:
         self.example_messages = [*self.system_message]
 
         self.embedding_model = SentenceTransformer(
-            embedding_model, local_files_only=True
+            embedding_model,
         ).to(
             "cuda"
             if th.cuda.is_available()
@@ -193,9 +193,21 @@ class AnnotatorHelper:
                 self.embeddings_sentences[sid] = embedded_sentences[i, :]
         self.loaded_articles = articles
 
-    def load_articles_from_path(self, path: Path):
-        os.makedirs(path.parent, exist_ok=True)
-        with open(path, "r") as f:
+    def load_articles_from_path(self, cache_path: Path, full_data: Path | None = None):
+        os.makedirs(cache_path.parent, exist_ok=True)
+        if not cache_path.exists():
+            print(f"File {cache_path} does not exist. Starting with empty articles.")
+            if full_data is not None:
+                print(f"Loading full data from {full_data} to initialize the articles.")
+                with open(full_data, "r") as f:
+                    data = json.load(f)
+                articles = {
+                    id: AnnotatedArticle.model_validate(article)
+                    for id, article in data["articles"].items()
+                }
+                self.load_articles(articles)
+                self.save_articles(cache_path)
+        with open(cache_path, "r") as f:
             data = json.load(f)
         for id, article in data["articles"].items():
             self.loaded_articles[id] = AnnotatedArticle.model_validate(article)
@@ -354,7 +366,6 @@ class AnnotatorHelper:
         annotated_articles: dict[str, AnnotatedArticle],
         definitions_file=Path("./data/Annotations/merged_uri_definitions.json"),
     ):
-
         with open(definitions_file, "r") as f:
             uri_collection_definitions = json.load(f)
 
@@ -459,7 +470,6 @@ class Annotator(ABC, Generic[T]):
         grammar: LlamaGrammar,
         max_tokens=128,
     ):
-
         # get the formatter
         input_message = llama_chat_format.format_llama3(messages)
         prompt: str = input_message.prompt
@@ -548,7 +558,6 @@ class Annotator(ABC, Generic[T]):
         }
 
     def __prompt_sentence(self, sent: Sentence) -> ChatCompletionRequestMessage:
-
         return {
             "role": "user",
             "content": sent.text,

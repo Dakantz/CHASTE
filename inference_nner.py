@@ -3,7 +3,12 @@ from email.policy import default
 
 from llama_cpp import Llama
 
-from constrerl.annotator import AnnotatedArticle, AnnotatorHelper, AnnotationTypes
+from constrerl.annotator import (
+    AnnotatedArticle,
+    AnnotatorHelper,
+    AnnotationTypes,
+    Metadata,
+)
 from constrerl.utils import prepare_for_eval
 
 # %%
@@ -21,7 +26,7 @@ if __name__ == "__main__":
         "--data-path", type=str, default="data/bionner/train_processed.json"
     )
     parser.add_argument(
-        "--eval-path", type=str, default="data/bionner/dev_processed.json"
+        "--eval-path", type=str, default="data/Articles/json_format/articles_test.json"
     )
     parser.add_argument("--out-path", type=str, default="data/results_bionner_dev")
     parser.add_argument("--out-file", type=str, default="dev_out.json")
@@ -83,7 +88,7 @@ if __name__ == "__main__":
     with open(args.eval_path, "r") as f:
         eval_set = json.load(f)
     eval_set = {
-        id: AnnotatedArticle.model_validate(article) for id, article in eval_set.items()
+        id: Metadata.model_validate(article) for id, article in eval_set.items()
     }
     print("-->> Loaded eval set articles:", len(eval_set))
 
@@ -96,7 +101,7 @@ if __name__ == "__main__":
     )
     print("Annotating with types", annotations_types)
     annotations: dict[str, AnnotatedArticle] = annotator.annotate(
-        {id: article.metadata for id, article in list(eval_set.items())},
+        {id: article for id, article in list(eval_set.items())},
         annotate=annotations_types,
     )
     annotator.add_concept_uris(annotations)

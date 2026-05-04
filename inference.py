@@ -10,6 +10,7 @@ from constrerl.annotator import (
     Metadata,
 )
 from constrerl.utils import prepare_for_eval
+from constrerl.beam_search.beam_search import BeamSearchConfig
 
 # %%
 import argparse
@@ -28,8 +29,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--eval-path", type=str, default="data/Articles/json_format/articles_test.json"
     )
-    parser.add_argument("--out-path", type=str, default="data/results_dev")
-    parser.add_argument("--out-file", type=str, default="dev_out.json")
+    parser.add_argument("--out-path", type=str, default="data/results_test")
+    parser.add_argument("--out-file", type=str, default="test_out.json")
     parser.add_argument("--type", type=str, default="entities")
     parser.add_argument("--top-k", type=int, default=5)
     parser.add_argument("--gen-tokens", type=int, default=512)
@@ -39,7 +40,7 @@ if __name__ == "__main__":
     parser.add_argument("--naive-filter", default=False, action="store_true")
     parser.add_argument("--naive-only", default=False, action="store_true")
     parser.add_argument(
-        "--beam-search", default="greedy", choices=["end", "shallow", "greedy"]
+        "--beam-search", default="none", choices=["end", "shallow", "none"]
     )
     args = parser.parse_args()
     print("Starting with", args)
@@ -73,7 +74,20 @@ if __name__ == "__main__":
         case _:
             print("Unknown model provider", args.model_provider)
     data_path = args.data_path
-    out_path = Path(args.out_path) / args.out_file
+    out_path = Path(args.out_path)
+    out_path.mkdir(parents=True, exist_ok=True)
+    out_path = out_path / args.out_file
+
+    beam_search = None
+    match args.beam_search:
+        case "end":
+            beam_search = BeamSearchConfig(k_progress=[4, 1, -1])
+        case "shallow":
+            beam_search = BeamSearchConfig(
+                top_k=2,
+                max_depth=3,
+                skip_tokens=2,
+            )
     annotator = AnnotatorHelper(
         model=model,
         gen_tokens=args.gen_tokens,
@@ -82,6 +96,7 @@ if __name__ == "__main__":
         naive_only=args.naive_only,
         naive_filter=args.naive_filter,
         top_k=args.top_k,
+        beam_search=beam_search,
     )
     print("Loading articles from", data_path)
     annotator.load_articles_from_path(Path(data_path))

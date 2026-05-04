@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=evaluate_clef_hermes
-#SBATCH --array=0-23%4
+#SBATCH --array=0-71%4
 #SBATCH -c 4
 #SBATCH --mem 24G
 #SBATCH --gres=gpu:a40 
@@ -9,10 +9,11 @@
 #SBATCH --error=logs/evaluate_%A_%a.err
 #SBATCH --time=4:00:00
 
-# Array size is 48 to cover all combinations of:
+# Array size is 72 to cover all combinations of:
 # - 2 model types (3B, 8B)
 # - 3 annotation types (base, entities, relations)
 # - RAG vs no RAG
+# - beam search types (none, end, shallow)
 # # - gen-tokens 512 vs 2048
 # - +naive or not
 
@@ -34,6 +35,11 @@ annotation_types=(
     "entities"
     "relations"
     "base"
+)
+beam_search_types=(
+    "none"
+    "end"
+    "shallow"
 )
 
 
@@ -58,19 +64,23 @@ fi
 FLAGS="$FLAGS --type $annotation_type"
 FLAGS="$FLAGS --model-spec $quant_folder/$model_type$annotation_model_postfix.gguf"
 
-echo "Annotation type: $annotation_type"
-echo "Model type: $model_type"
 
-echo "Using model $quant_folder/$model_type$annotation_model_postfix.gguf"
-out_file="$out_file-$model_type-$annotation_type"
-
-if [ $(($SLURM_ARRAY_TASK_ID/12)) -eq 0 ]; then
+if [ $(($SLURM_ARRAY_TASK_ID/12)%2) -eq 0 ]; then
     FLAGS="$FLAGS --add-naive"
     echo "Using --add-naive" 
     out_file="$out_file-naive" 
 else
     echo "No --add-naive"
 fi
+beam_search_type=${beam_search_types[($SLURM_ARRAY_TASK_ID/24)%3]}
+FLAGS="$FLAGS --beam-search $beam_search_type"
+out_file="$out_file-beam-$beam_search_type"
+
+echo "Annotation type: $annotation_type"
+echo "Model type: $model_type"
+
+echo "Using model $quant_folder/$model_type$annotation_model_postfix.gguf"
+out_file="$out_file-$model_type-$annotation_type"
 out_file="$out_file.json"
 
 echo "Running with $FLAGS to $out_file"

@@ -465,15 +465,20 @@ class Annotator(ABC, Generic[T]):
         prompt: str = input_message.prompt
 
         input_tokens: list[int] = self.model.tokenizer().tokenize(
-            prompt.encode("utf-8")
+            prompt.encode("utf-8"), add_bos=False
         )
         new_tokens = []
         for t in tqdm(range(max_tokens), "Beam-Searching tokens"):
             root = BeamSearchNode(
-                self.model, grammar=grammar, cfg=self.helper.beam_search
+                self.model,
+                grammar=grammar,
+                cfg=self.helper.beam_search,
+                input_tokens=input_tokens,
+                new_tokens=new_tokens,
             )
             root.explore_tree(input_tokens + new_tokens)
             t_p, t_nd = root.best_tree()
+            old_tokens = new_tokens.copy()
             skip_tokens = None
             if self.helper.beam_search.k_progress is not None and t_p is not None:
                 skip_tokens = None
@@ -481,13 +486,19 @@ class Annotator(ABC, Generic[T]):
                 skip_tokens = self.helper.beam_search.skip_tokens
             else:
                 skip_tokens = 1
-            new_tokens = new_tokens + t_nd.new_tokens[:skip_tokens]
+            target_tokens = None
+            if skip_tokens is not None:
+                target_tokens = len(old_tokens) + skip_tokens
+            new_tokens = t_nd.new_tokens[:target_tokens]
 
-            added_str = self.model.tokenizer().decode(t_nd.new_tokens[:skip_tokens])
-            if self.model.metadata.get("tokenizer.ggml.eos_token_id", -1) in new_tokens:
+            added_str = self.model.tokenizer().decode(
+                t_nd.new_tokens[len(old_tokens) : target_tokens]
+            )
+            complete_str = self.model.tokenizer().decode(new_tokens)
+            if t_nd.eos_token_id() in new_tokens or len(old_tokens) == len(new_tokens):
                 break
             print(
-                f"Decoded beam search output: {added_str=} {skip_tokens=} {t_nd.new_str=}"
+                f"Decoded beam search output: {added_str=} {skip_tokens=} {t_nd.new_str=} {complete_str=}"
             )
         decoded = self.model.tokenizer().decode(new_tokens)
         print(f"Final beam search output: {decoded=}")

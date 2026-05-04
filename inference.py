@@ -24,7 +24,7 @@ if __name__ == "__main__":
         "--model-spec", type=str, default="quants/llama-3-2-1B-instruct-lora.gguf"
     )
     parser.add_argument(
-        "--data-path", type=str, default="data/Annotations/prepared_train.json"
+        "--data-path", type=str, default="data/Annotations/prepared_dev_train.json"
     )
     parser.add_argument(
         "--eval-path", type=str, default="data/Articles/json_format/articles_test.json"

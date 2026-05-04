@@ -30,6 +30,7 @@ class BeamSearchNode:
         lark_grammar=None,
         depth=0,
         input_tokens: list[int] = None,
+        new_tokens: list[int] = [],
     ):
         self.children: list[BeamSearchNode] = []
         self.model = model
@@ -40,7 +41,7 @@ class BeamSearchNode:
         self.cfg = cfg
         self.depth = depth
         self.input_tokens = input_tokens
-        self.new_tokens: list[int] = []
+        self.new_tokens: list[int] = new_tokens
         self.new_str: str = ""
         if lark_grammar is None:
             # print("Parsing grammar with lark...", grammar._grammar)
@@ -98,6 +99,7 @@ class BeamSearchNode:
             lark_grammar=self.lark_grammar,
             depth=self.depth + 1,
             input_tokens=self.input_tokens,
+            new_tokens=self.new_tokens + [token],
         )
         child.log_p = log_p
         child.token = token
@@ -155,6 +157,9 @@ class BeamSearchNode:
 
         filtered_logits = self.filter_logits(logits[0])
         if len(filtered_logits) == 0:
+            # print(
+            #     f"No valid tokens found at reached at {depth=}  on str {self.new_str=} resp txt {response['choices'][0]['text']}, setting to filtered_logits to {filtered_logits=} (from logits {logits=}) with {tokens=} and oversample {oversample=}"
+            # )
             resp_detokenized = self.model.tokenizer().tokenize(
                 response["choices"][0]["text"].encode("utf-8"),
                 special=True,
@@ -180,7 +185,7 @@ class BeamSearchNode:
         )[:top_k]
         for t, log_p in top_k_tokens:
             child = self.create_child(t, log_p)
-            assert len(child.new_tokens) == depth + 1
+            # assert len(child.new_tokens) == depth + 1
             self.children.append(child)
             if child.is_end():
                 continue

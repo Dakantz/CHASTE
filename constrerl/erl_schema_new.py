@@ -3,10 +3,6 @@ from __future__ import annotations
 from pydantic import BaseModel, create_model, Field
 from typing import List, Tuple, Union, Annotated, Literal
 from enum import Enum
-from llama_cpp_agent.gbnf_grammar_generator.gbnf_grammar_from_pydantic_models import (
-    generate_gbnf_grammar_from_pydantic_models,
-)
-
 
 entity_labels = [
     {
@@ -298,4 +294,5 @@ def convert_to_string_model(string_model: "EnumERLModel") -> "StringERLModel":
 
 def build_grammar():
     rel_model = build_model()
-    return generate_gbnf_grammar_from_pydantic_models([rel_model])
+    # return generate_gbnf_grammar_from_pydantic_models([rel_model])
+    pass

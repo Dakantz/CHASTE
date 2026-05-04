@@ -61,7 +61,7 @@ FLAGS="$FLAGS --type $annotation_type"
 FLAGS="$FLAGS --model-spec $quant_folder/$model_type$annotation_model_postfix.gguf"
 
 
-if [ $(($SLURM_ARRAY_TASK_ID/12)%2) -eq 0 ]; then
+if [ $((($SLURM_ARRAY_TASK_ID/12)%2)) -eq 0 ]; then
     FLAGS="$FLAGS --add-naive"
     echo "Using --add-naive" 
     out_file="$out_file-naive" 

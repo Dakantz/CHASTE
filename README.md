@@ -24,15 +24,18 @@
 # Install dependencies
 git submodule update
 git submodule update --init --recursive
-uv sync --prerelease=allow   
+CMAKE_ARGS="-DGGML_CUDA=on -DCMAKE_BUILD_PARALLEL_LEVEL=8" uv sync --prerelease=allow  
+# might need to specify your CUDA arch:
+CMAKE_BUILD_PARALLEL_LEVEL=8 CMAKE_ARGS="-DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES="75"" uv sync --prerelease=allow  
+# # if you want to use you metal processor:
+CMAKE_ARGS="-DGGML_METAL=on" uv sync --prerelease=allow  
 source .venv/bin/activate
-cd llama-cpp-python
-# if you want to use the GPU:
-CMAKE_ARGS="-DGGML_CUDA=on -DCMAKE_BUILD_PARALLEL_LEVEL=8" uv pip install -e . 
-# if you want to use you metal processor:
-CMAKE_ARGS="-DGGML_METAL=on"  uv pip install -e .
-# on a cluster you could start into a interactive environment:
-srun --gres=gpu:a40 -c 12 --partition allgroups  --time=10:00  --pty   bash
+# in case you want to edit the llama python bindings
+# # if you want to use the GPU:
+# CMAKE_ARGS="-DGGML_CUDA=on -DCMAKE_BUILD_PARALLEL_LEVEL=8" uv pip install -e llama-cpp-python
+# CMAKE_ARGS="-DGGML_METAL=on"  uv pip install -e llama-cpp-python
+# on a cluster you could start into a interactive environment to compile with nvcc!
+srun --gres=gpu -c 12 -u kanben  --time=1:00:00  --pty   bash
 
 # dowload models (make sure to set you HF token!)
 tune download NousResearch/Hermes-3-Llama-3.2-3B  --output-dir models/hermes-3-2-3B

@@ -3,9 +3,6 @@ from __future__ import annotations
 from pydantic import BaseModel, create_model, Field
 from typing import List, Tuple, Union, Annotated, Literal
 from enum import Enum
-from llama_cpp_agent.gbnf_grammar_generator.gbnf_grammar_from_pydantic_models import (
-    generate_gbnf_grammar_from_pydantic_models,
-)
 from .annotation_model import (
     Relation,
     AnnotatedArticle,

@@ -81,4 +81,4 @@ out_file="$out_file.json"
 
 echo "Running with $FLAGS to $out_file"
 
-python inference.py --model-provider llama --out-file $out_file $FLAGS 
+python inference.py --model-provider llama --out-file $out_file $FLAGS  --data-path data/Annotations/prepared_train.json --eval-path data/Articles/json_format/articles_dev.json --out-path data/results_dev

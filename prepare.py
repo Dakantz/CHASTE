@@ -21,5 +21,5 @@ annotator_helper = AnnotatorHelper(top_k=5)
 annotator_helper.load_articles(train_data)
 
 
-out_path = Path("./data/Annotations/train_prepared.json")
+out_path = Path("./data/Annotations/prepared_train.json")
 annotator_helper.save_articles(out_path)

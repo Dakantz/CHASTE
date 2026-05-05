@@ -58,6 +58,7 @@ if __name__ == "__main__":
                     n_gpu_layers=-1,
                     n_ctx=args.ctx,
                     temperature=0.1,
+                    logits_all=True,
                     # draft_model=LlamaPromptLookupDecoding(num_pred_tokens=10),
                 )
             else:
@@ -67,6 +68,7 @@ if __name__ == "__main__":
                     n_gpu_layers=-1,
                     n_ctx=args.ctx,
                     temperature=0.1,
+                    logits_all=True,
                 )
         case "naive":
             print("Using naive annotator, no model will be loaded")
@@ -79,18 +81,21 @@ if __name__ == "__main__":
     out_path = out_path / args.out_file
 
     beam_search = None
+    gen_tokens = args.gen_tokens
     match args.beam_search:
         case "end":
             beam_search = BeamSearchConfig(k_progress=[4, 1, -1])
+            gen_tokens = 2
         case "shallow":
             beam_search = BeamSearchConfig(
                 top_k=2,
                 max_depth=3,
                 skip_tokens=2,
             )
+            gen_tokens = 32
     annotator = AnnotatorHelper(
         model=model,
-        gen_tokens=args.gen_tokens,
+        gen_tokens=gen_tokens,
         add_rag=args.add_rag,
         naive_annotations=args.add_naive,
         naive_only=args.naive_only,

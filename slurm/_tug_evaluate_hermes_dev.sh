@@ -17,4 +17,4 @@
 # - +naive or not
 # - 
 
-bash tug_evaluate_hermes.sh
+bash tug_evaluate_hermes_dev.sh

@@ -14,7 +14,7 @@
 
 ## Our appraoch
 
-* extract noun phrases using space
+* extract noun phrases using spacy
 * constrain LLM using simple (!) grammar
 * Use finetuned HERMES 3.2 1B or 3B
 

@@ -8,7 +8,9 @@ from constrerl.annotator import (
     AnnotatorHelper,
     AnnotationTypes,
     Metadata,
+    SpacyAnnotator,
 )
+from constrerl.sentences import Sentence, BERTAnnotator
 from constrerl.utils import prepare_for_eval
 from constrerl.beam_search.beam_search import BeamSearchConfig
 
@@ -39,6 +41,7 @@ if __name__ == "__main__":
     parser.add_argument("--add-naive", default=False, action="store_true")
     parser.add_argument("--naive-filter", default=False, action="store_true")
     parser.add_argument("--naive-only", default=False, action="store_true")
+    parser.add_argument("--use-ne-finetuned", default=False, action="store_true")
     parser.add_argument(
         "--beam-search", default="none", choices=["end", "shallow", "none"]
     )
@@ -102,6 +105,7 @@ if __name__ == "__main__":
         naive_filter=args.naive_filter,
         top_k=args.top_k,
         beam_search=beam_search,
+        ne_extractor=BERTAnnotator() if args.use_ne_finetuned else SpacyAnnotator(),
     )
     print("Loading articles from", data_path)
     annotator.load_articles_from_path(Path(data_path))

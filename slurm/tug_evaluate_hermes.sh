@@ -39,8 +39,8 @@ beam_search_types=(
 )
 
 
-FLAGS=""
-out_file="eval_hermes"
+FLAGS="--use-ne-finetuned "
+out_file="eval_hermes_neefinetuned"
 # RAG vs no RAG
 if [ $(($SLURM_ARRAY_TASK_ID%2)) -eq 0 ]; then
     FLAGS="$FLAGS --add-rag"

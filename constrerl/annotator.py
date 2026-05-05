@@ -42,8 +42,8 @@ from .beam_search.beam_search import BeamSearchNode, BeamSearchConfig
 from .sentences import (
     Sentence,
     AnnotationSpan,
+    SpacyAnnotator,
     article_to_sentences,
-    extract_noun_phrases,
     annotated_sentences_to_article,
 )
 from .concepts import ConceptDefinition
@@ -97,6 +97,7 @@ class AnnotatorHelper:
             "silver": 0.8,
             "bronze": 0.7,
         },
+        ne_extractor=SpacyAnnotator(),
     ):
         self.model = model
         self.relation_model = model
@@ -153,6 +154,7 @@ class AnnotatorHelper:
                         for obj in rel["tails"]:
                             possible_relations.append((subj, predicate, obj))
         self.possible_relations = possible_relations
+        self.ne_extractor = ne_extractor
 
     @classmethod
     def relations_to_str(self, relations: list[Relation], sep="\n", sep_rel="|"):
@@ -532,7 +534,9 @@ class Annotator(ABC, Generic[T]):
                     sentence_id = f"{id}_{sentence.start_idx}"
                     if len(sentence.text.strip()) == 0:
                         continue
-                    phrases = extract_noun_phrases(sentence.text)
+                    phrases = self.helper.ne_extractor.extract_noun_phrases(
+                        sentence.text
+                    )
                     prompts = [*self.helper.system_message]
                     if self.helper.few_shot:
                         for ex in self.helper.example_messages:

@@ -32,8 +32,8 @@ CMAKE_ARGS="-DGGML_METAL=on" uv sync --prerelease=allow
 source .venv/bin/activate
 # in case you want to edit the llama python bindings
 # # if you want to use the GPU:
-# CMAKE_ARGS="-DGGML_CUDA=on -DCMAKE_BUILD_PARALLEL_LEVEL=8" uv pip install -e llama-cpp-python
-# CMAKE_ARGS="-DGGML_METAL=on"  uv pip install -e llama-cpp-python
+# CMAKE_BUILD_PARALLEL_LEVEL=8 CMAKE_ARGS="-DGGML_CUDA=on" uv pip install -e llama-cpp-python
+# CMAKE_BUILD_PARALLEL_LEVEL=8 CMAKE_ARGS="-DGGML_METAL=on"  uv pip install -e llama-cpp-python
 # on a cluster you could start into a interactive environment to compile with nvcc!
 srun --gres=gpu -c 12 -u kanben  --time=1:00:00  --pty   bash
 

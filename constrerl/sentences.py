@@ -1,3 +1,6 @@
+from abc import abstractmethod
+import abc
+from pathlib import Path
 from pydantic import BaseModel
 import re
 import spacy
@@ -9,8 +12,8 @@ from constrerl.annotation_model import (
     Metadata,
     AnnotatedArticle,
 )
-
-nlp = spacy.load("en_core_web_trf")
+from transformers import AutoTokenizer, AutoModelForTokenClassification
+import torch
 
 
 class AnnotationSpan(BaseModel):
@@ -19,43 +22,131 @@ class AnnotationSpan(BaseModel):
     text: str
 
 
-def extract_noun_phrases(txt: str) -> dict[str, AnnotationSpan]:
-    # Load the English NLP model
+class SentenceAnnotator(abc.ABC):
+    def __init__(self):
+        pass
 
-    # Parse the text
-    doc = nlp(txt)
+    @abstractmethod
+    def extract_noun_phrases(self, txt: str) -> dict[str, AnnotationSpan]:
+        pass
 
-    # Extract noun phrases
-    noun_phrases = {
-        chunk.text: AnnotationSpan(
-            start_idx=chunk.start_char,
-            end_idx=chunk.end_char,
-            text=chunk.text,
+
+class SpacyAnnotator(abc.ABC):
+    def __init__(self, model_name: str = "en_core_web_trf"):
+        self.nlp = spacy.load(model_name)
+
+    def extract_noun_phrases(self, txt: str) -> dict[str, AnnotationSpan]:
+        # Load the English NLP model
+
+        # Parse the text
+        doc = self.nlp(txt)
+
+        # Extract noun phrases
+        noun_phrases = {
+            chunk.text: AnnotationSpan(
+                start_idx=chunk.start_char,
+                end_idx=chunk.end_char,
+                text=chunk.text,
+            )
+            for chunk in doc.noun_chunks
+        }
+        # remove 'a ', 'an ', 'the ' from the beginning of noun phrases
+        for k, np in (dict(noun_phrases)).items():
+            new_text = re.sub(r"^(a|an|the)\s+", "", np.text, flags=re.IGNORECASE)
+            # also remove any leading special characters
+            new_text = re.sub(r"^[^\w]+", "", new_text)
+            if new_text != np.text:
+                noun_phrases[new_text] = AnnotationSpan(
+                    start_idx=np.start_idx + len(np.text) - len(new_text),
+                    end_idx=np.end_idx,
+                    text=new_text,
+                )
+                noun_phrases.pop(k)
+
+            new_text_end = re.sub(r"[\"\{\}]+", "", new_text)
+            if new_text_end != new_text:
+                noun_phrases[new_text_end] = AnnotationSpan(
+                    start_idx=np.start_idx,
+                    end_idx=np.end_idx,
+                    text=new_text_end,
+                )
+                noun_phrases.pop(new_text)
+        return noun_phrases
+
+
+class BERTAnnotator(SentenceAnnotator):
+    def __init__(self, model_path: Path = Path("./finetuned/ned/best_model/")):
+        super().__init__()
+        self.label_list = ["O", "B-NE", "I-NE"]
+        self.label2id = {l: i for i, l in enumerate(self.label_list)}
+        self.id2label = {i: l for l, i in self.label2id.items()}
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            f"{model_path.absolute()}/",
         )
-        for chunk in doc.noun_chunks
-    }
-    # remove 'a ', 'an ', 'the ' from the beginning of noun phrases
-    for k, np in (dict(noun_phrases)).items():
-        new_text = re.sub(r"^(a|an|the)\s+", "", np.text, flags=re.IGNORECASE)
-        # also remove any leading special characters
-        new_text = re.sub(r"^[^\w]+", "", new_text)
-        if new_text != np.text:
-            noun_phrases[new_text] = AnnotationSpan(
-                start_idx=np.start_idx + len(np.text) - len(new_text),
-                end_idx=np.end_idx,
-                text=new_text,
-            )
-            noun_phrases.pop(k)
 
-        new_text_end = re.sub(r"[\"\{\}]+", "", new_text)
-        if new_text_end != new_text:
-            noun_phrases[new_text_end] = AnnotationSpan(
-                start_idx=np.start_idx,
-                end_idx=np.end_idx,
-                text=new_text_end,
-            )
-            noun_phrases.pop(new_text)
-    return noun_phrases
+        self.model = AutoModelForTokenClassification.from_pretrained(
+            f"{model_path.absolute()}/",
+            num_labels=len(self.label_list),
+            id2label=self.id2label,
+            label2id=self.label2id,
+        )
+
+    def extract_noun_phrases(self, txt: str) -> dict[str, AnnotationSpan]:
+        # Implement noun phrase extraction using your BERT model
+        annotation_spans: dict[str, AnnotationSpan] = {}
+        text = txt
+        tokens = self.tokenizer(
+            text,
+            return_offsets_mapping=True,
+            padding="max_length",
+            max_length=128,
+            truncation=True,
+        )
+        input_ids = (
+            torch.tensor(tokens["input_ids"]).unsqueeze(0).to(self.model.device)
+        )  # batch size 1
+        attention_mask = (
+            torch.tensor(tokens["attention_mask"]).unsqueeze(0).to(self.model.device)
+        )
+        predictions = self.model(input_ids=input_ids, attention_mask=attention_mask)
+        predicted_labels = predictions.logits.argmax(dim=-1).squeeze().tolist()
+        print(predicted_labels)
+        offsets = tokens["offset_mapping"]
+        spans: list[AnnotationSpan] = []
+        current_span: AnnotationSpan = None
+        last_end_idx = 0
+
+        for label_id, (start, end) in zip(predicted_labels, offsets):
+            if label_id == self.label2id["O"]:
+                continue
+            if label_id == self.label2id["B-NE"]:
+                if current_span is not None:
+                    current_span.end_idx = last_end_idx
+                    current_span.text = text[
+                        current_span.start_idx : current_span.end_idx
+                    ]
+                    spans.append(current_span)
+                current_span = AnnotationSpan(
+                    start_idx=start,
+                    end_idx=end,
+                    text=text[start:end],
+                )
+            last_end_idx = end
+        if current_span is not None:
+            current_span.end_idx = last_end_idx
+            current_span.text = text[current_span.start_idx : current_span.end_idx]
+            spans.append(current_span)
+        filtered_ents = []
+        for ant in spans:
+            if ant.text.strip() != "":
+                ant.end_idx = ant.end_idx - 1
+                filtered_ents.append(ant)
+                annotation_spans[ant.text] = AnnotationSpan(
+                    start_idx=ant.start_idx,
+                    end_idx=ant.end_idx,
+                    text=ant.text,
+                )
+        return annotation_spans
 
 
 class Sentence(BaseModel):

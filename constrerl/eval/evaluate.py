@@ -12,6 +12,7 @@ LEGAL_ENTITY_LABELS = [
     "human",
     "microbiome",
     "statistical technique",
+    "NE",
 ]
 
 LEGAL_RELATION_LABELS = [
@@ -136,7 +137,6 @@ def remove_overlapping_entities(predictions: dict) -> None:
 
 
 def eval_submission_NER(predictions, ground_truth):
-
     # Remove duplicated and overlapping entities
     remove_duplicated_entities(predictions)
     remove_overlapping_entities(predictions)
@@ -241,7 +241,6 @@ def eval_submission_NER(predictions, ground_truth):
 
 
 def eval_submission_NERD(predictions, ground_truth):
-
     # Remove duplicated and overlapping entities
     remove_duplicated_entities(predictions)
     remove_overlapping_entities(predictions)
@@ -377,7 +376,6 @@ def remove_duplicated_mention_level_relations(predictions: dict) -> None:
 
 
 def eval_submission_mention_level_RE(predictions, ground_truth):
-
     # Remove duplicated mention-level relations
     remove_duplicated_mention_level_relations(predictions)
 
@@ -538,7 +536,6 @@ def remove_duplicated_concept_level_relations(predictions: dict) -> None:
 
 
 def eval_submission_concept_level_RE(predictions, ground_truth):
-
     # Remove duplicated concept-level relations
     remove_duplicated_concept_level_relations(predictions)
 

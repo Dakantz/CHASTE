@@ -71,6 +71,8 @@ class SpacyAnnotator(abc.ABC):
                     text=new_text_end,
                 )
                 noun_phrases.pop(new_text)
+        for p in noun_phrases.values():
+            p.end_idx = p.end_idx - 1
         return noun_phrases
 
 
@@ -110,7 +112,6 @@ class BERTAnnotator(SentenceAnnotator):
         )
         predictions = self.model(input_ids=input_ids, attention_mask=attention_mask)
         predicted_labels = predictions.logits.argmax(dim=-1).squeeze().tolist()
-        print(predicted_labels)
         offsets = tokens["offset_mapping"]
         spans: list[AnnotationSpan] = []
         current_span: AnnotationSpan = None

@@ -82,7 +82,7 @@ class Metadata(BaseModel):
 
 
 class AnnotatedArticle(BaseModel):
-    metadata: Metadata
+    metadata: Metadata | None = None
     entities: List[Entity] | None = None
 
     relations: List[Relation] | None = None

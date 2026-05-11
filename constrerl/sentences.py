@@ -77,7 +77,7 @@ class SpacyAnnotator(abc.ABC):
 
 
 class BERTAnnotator(SentenceAnnotator):
-    def __init__(self, model_path: Path = Path("./finetuned/ned/best_model/")):
+    def __init__(self, model_path: Path = Path("./finetuned/ned/best_model_pubmed/")):
         super().__init__()
         self.label_list = ["O", "B-NE", "I-NE"]
         self.label2id = {l: i for i, l in enumerate(self.label_list)}

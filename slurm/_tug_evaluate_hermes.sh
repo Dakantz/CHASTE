@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=evaluate_clef_hermes
-#SBATCH --array=24-71%4
+#SBATCH --array=0-71%12
 #SBATCH -c 2
 #SBATCH --mem 12G
 #SBATCH --gres=gpu 

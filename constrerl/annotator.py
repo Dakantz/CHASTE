@@ -47,6 +47,7 @@ from .sentences import (
     annotated_sentences_to_article,
 )
 from .concepts import ConceptDefinition
+from collections.abc import Iterator, Callable
 
 import os
 
@@ -336,6 +337,8 @@ class AnnotatorHelper:
             AnnotationTypes.ENTITY,
             AnnotationTypes.RELATION,
         ],
+        cb: Callable[[str, AnnotatedArticle, dict[str, AnnotatedArticle]], None]
+        | None = None,
     ) -> dict[str, AnnotatedArticle]:
         if self.naive_annotations and len(self.concepts) == 0:
             print("Loading concepts for naive annotation...")
@@ -355,12 +358,14 @@ class AnnotatorHelper:
                         annotated_articles[id] = article
                     else:
                         annotated_articles[id].entities = article.entities
+                    cb(id, article, annotated_articles) if cb is not None else None
             elif isinstance(annotator, RelationAnnotator):
                 for id, article in annotated_articles_by_annotator.items():
                     if id not in annotated_articles:
                         annotated_articles[id] = article
                     else:
                         annotated_articles[id].relations = article.relations
+                    cb(id, article, annotated_articles) if cb is not None else None
         return annotated_articles
 
     def add_concept_uris(
@@ -453,18 +458,22 @@ class Annotator(ABC, Generic[T]):
     def completion(
         self, messages: list[ChatCompletionRequestMessage], grammar: LlamaGrammar
     ):
-        if self.helper.beam_search is not None:
-            response = self.completion_beam_search(
-                messages=messages,
-                grammar=grammar,
+        try:
+            if self.helper.beam_search is not None:
+                response = self.completion_beam_search(
+                    messages=messages,
+                    grammar=grammar,
+                    max_tokens=self.helper.gen_tokens,
+                )
+            response = self.model.create_chat_completion(
+                messages,
                 max_tokens=self.helper.gen_tokens,
+                grammar=grammar,
             )
-        response = self.model.create_chat_completion(
-            messages,
-            max_tokens=self.helper.gen_tokens,
-            grammar=grammar,
-        )
-        return response
+            return response
+        except Exception as e:
+            print(f"Error during completion: {e}")
+            return None
 
     def completion_beam_search(
         self,
@@ -557,6 +566,8 @@ class Annotator(ABC, Generic[T]):
                     chat_response = self.completion(
                         messages=messages, grammar=self.grammar(phrases)
                     )
+                    if chat_response is None:
+                        continue
                     response = chat_response["choices"][-1]["message"]["content"]
                     structure = self.response_to_structure(response, sentence, phrases)
                     annotations.extend(structure)

@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --job-name=evaluate_clef_hermes
-#SBATCH --array=24-71%4
+#SBATCH --array=24-71%12
 #SBATCH -c 2
-#SBATCH --mem 12G
+#SBATCH --mem 4G
 #SBATCH --gres=gpu 
 #SBATCH --account=bkantz
 #SBATCH --output=logs/evaluate_%A_%a.out

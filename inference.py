@@ -62,6 +62,7 @@ if __name__ == "__main__":
                     n_ctx=args.ctx,
                     temperature=0.1,
                     logits_all=True,
+                    verbose=False,
                     # draft_model=LlamaPromptLookupDecoding(num_pred_tokens=10),
                 )
             else:
@@ -72,6 +73,7 @@ if __name__ == "__main__":
                     n_ctx=args.ctx,
                     temperature=0.1,
                     logits_all=True,
+                    verbose=False,
                 )
         case "naive":
             print("Using naive annotator, no model will be loaded")
@@ -126,11 +128,18 @@ if __name__ == "__main__":
         else [AnnotationTypes.ENTITY, AnnotationTypes.RELATION]
     )
     print("Annotating with types", annotations_types)
+
+    def save_cb(id, article, annotated_articles):
+        annotator.add_concept_uris(annotated_articles)
+        output_data = prepare_for_eval(annotations)
+        with open(out_path, "w") as f:
+            json.dump(output_data, f)
+
     annotations: dict[str, AnnotatedArticle] = annotator.annotate(
         {id: article for id, article in list(eval_set.items())},
         annotate=annotations_types,
+        cb=save_cb,
     )
-    annotator.add_concept_uris(annotations)
 
     output_data = prepare_for_eval(annotations)
     # %%

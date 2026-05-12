@@ -11,10 +11,9 @@
 ## Our appraoch
 * Use a RAG approach to prompt a LM to return the relations
   - fetch similar articles from VectorDB to give good examples (if the run ID contains `rag`)
-  - reorder the RAG data to improve the handling of the model, i.e. put Gold annotations before Silver (if the run ID contains `reorder`)
   - finetune the Hermes model on the train data combinations, with text+annotation pairs (if the run ID contains `lora`)
   - use an efficient grammar-based generation strategy for both entities and relations
-  - the grammar is informed from NE from `spacy`
+  - the grammar is informed from NE from `spacy` or a finetuned model if the run id contain `finetuneed`
   - disambiguation uses simple TF-IDF matching
   - we also employ beam search over tokens, either:
     - branching over 2 paths for 3 depth steps and taking the maximal likelihood, or

@@ -20,3 +20,4 @@ staging
 *.tex
 finetuned
 *.zip
+*.csv

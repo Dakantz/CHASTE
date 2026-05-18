@@ -75,16 +75,41 @@ def extract_flags_from_name(
     ]
     model_name = "3.2 1B" if "hermes-3-2-3B" in name or "323B" in name else "3.1 8B"
     graphwise_name = None
-    if merge_mode:
+
+    def get_graphwise_name(name: str) -> str:
         splits = name.split("_")
         graphwise_idx = next(
             (i for i, s in enumerate(splits) if s.lower() == "graphwise"), None
         )
         if graphwise_idx is not None and graphwise_idx + 2 < len(splits):
             graphwise_name = "_".join(splits[graphwise_idx + 2 : -1])
-    if merge_mode and graphwise_name is None:
-        graphwise_name = name.split("Graphwise")[-1]
-        graphwise_name = re.sub(r"T\d+", "", graphwise_name)
+        graphwise_name = graphwise_name.replace("union", "").replace("intersection", "")
+        # graphwise_name = re.sub(r"T\d+", "", graphwise_name)
+        graphwise_name = re.sub(r"(\d+[\_-])", "", graphwise_name)
+        graphwise_name = re.sub(r"-DEV", "", graphwise_name)
+        graphwise_name = re.sub(r"BGPT5520G", "", graphwise_name)
+        graphwise_name = re.sub(r"\_", "-", graphwise_name)
+        return graphwise_name.strip("_- ")
+
+    if merge_mode and not test_mode:
+        graphwise_name = get_graphwise_name(name)
+    if merge_mode and test_mode:
+        # look up in submission folder
+        submission_folder = Path("staging").glob(f"*{name}*")
+        submission_file = next(submission_folder, None)
+        print(f"Looking for submission file for {name}, found {submission_file}")
+        if submission_file is not None:
+            meta_file = submission_file / f"{submission_file.name}.meta"
+            with open(meta_file, "r") as f:
+                meta_data = f.read()
+            full_run_id = re.findall(r"RunID: (.+)", meta_data, re.MULTILINE)
+            print(f"Found full run id {full_run_id} for {name}")
+            graphwise_name = (
+                get_graphwise_name(full_run_id[0]) if full_run_id else graphwise_name
+            )
+
+    if graphwise_name is not None:
+        graphwise_name = rf"""\parbox{{2cm}}{{{graphwise_name}}}"""
     if "eval_naive" in name or name.startswith("naive"):
         model_name = "Naive"
     # splits = model_name.split(" ")
@@ -114,6 +139,7 @@ def extract_flags_from_name(
 
     if merge_mode and graphwise_name is not None:
         result_dict["Graphwise"] = graphwise_name
+        result_dict.pop("Filter", None)
     if k is not None:
         result_dict["$k$"] = k
     set_op = "$\cup$" if "union" in name else "$\cap$"

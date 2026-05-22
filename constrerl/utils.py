@@ -9,9 +9,10 @@ from .annotation_model import (
 )
 from .annotator import AnnotationTypes
 from pydantic import BaseModel
-from typing import TypeVar
+from typing import Any, TypeVar
 import json
 from pathlib import Path
+import pandas as pd
 
 
 def load_train(file_path: str):
@@ -73,7 +74,7 @@ def extract_flags_from_name(
         AnnotationTypes.ENTITY,
         AnnotationTypes.RELATION,
     ]
-    model_name = "3.2 1B" if "hermes-3-2-3B" in name or "323B" in name else "3.1 8B"
+    model_name = "3.2 3B" if "hermes-3-2-3B" in name or "323B" in name else "3.1 8B"
     graphwise_name = None
 
     def get_graphwise_name(name: str) -> str:
@@ -109,7 +110,9 @@ def extract_flags_from_name(
             )
 
     if graphwise_name is not None:
-        graphwise_name = rf"""\parbox{{2cm}}{{{graphwise_name}}}"""
+        graphwise_name = (
+            rf"""\parbox{{2cm}}{{\vspace*{{0.3em}}{graphwise_name}\vspace*{{1em}}}}"""
+        )
     if "eval_naive" in name or name.startswith("naive"):
         model_name = "Naive"
     # splits = model_name.split(" ")
@@ -149,3 +152,43 @@ def extract_flags_from_name(
         if isinstance(v, bool):
             result_dict[k] = tf[v]
     return result_dict
+
+
+def calculate_improvements(
+    df_in: pd.DataFrame,
+    df_other: pd.DataFrame,
+    relevant_metrics: list[str] = ["$F_1$", "$F_{1,micro}$"],
+    top: int = 10,
+) -> pd.DataFrame:
+    index_cols = list(df_in.index.names)
+    val_cols = list(df_in.columns)
+    df = df_in.copy().reset_index()
+    df = df.sort_values(relevant_metrics, ascending=False).head(top)
+    df_other = df_other.copy().reset_index()
+    improveds: list[dict[str, Any]] = []
+    # match rows
+    for i, base_row in df.iterrows():
+        matching_others = df_other[
+            (df_other[index_cols] == base_row[index_cols]).all(axis=1)
+        ]
+        if len(matching_others) == 0:
+            # print(
+            #     f"No matching row found for base row with {other_keys}={base_row[other_keys].to_dict()} when comparing {ck}={base[ck]} to {ck}={other_option}."
+            # )
+            continue
+
+        improvements = (matching_others[val_cols] - base_row[val_cols]).iloc[0]
+        improveds.append(
+            {k: improvements.to_dict()[k] for k in relevant_metrics}
+            | {
+                f"Relative {k}": matching_others.iloc[0][k] / base_row[k] - 1
+                if base_row[k] != 0
+                else 0
+                for k in relevant_metrics
+            }
+            | matching_others.iloc[0][index_cols].to_dict()
+        )
+    if len(improveds) == 0:
+        print("No improvements calculated. Returning empty DataFrame.")
+        return pd.DataFrame()
+    return pd.DataFrame(improveds).set_index(index_cols).sort_index()

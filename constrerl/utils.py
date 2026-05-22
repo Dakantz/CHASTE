@@ -130,7 +130,7 @@ def extract_flags_from_name(
 
     result_dict = {
         "Model": model_name,
-        "NE FT": "neefinetuned" in name,
+        "NED FT": "neefinetuned" in name,
         "Beams": beam_type(name),
         "Naive": "naive" in name,
         "Filter": "filtered" in name,
@@ -155,6 +155,67 @@ def extract_flags_from_name(
 
 
 def calculate_improvements(
+    df_in: pd.DataFrame, base: dict[str, Any] = {"Beams": "$\\times$"}
+) -> pd.DataFrame:
+    index_cols = list(df_in.index.names)
+    val_cols = list(df_in.columns)
+    df = df_in.copy().reset_index()
+    check_keys = [ck for ck in index_cols if ck in base.keys()]
+    other_keys = [k for k in index_cols if k not in check_keys]
+    if len(check_keys) == 0:
+        print(
+            f"No base keys found in DataFrame columns: {df.columns.tolist()}. Returning original DataFrame."
+        )
+        return df
+    options = []
+    for ck in check_keys:
+        other_options = [o for o in df[ck].unique().tolist() if o != base[ck]]
+        options.append((ck, other_options))
+    print(
+        f"Calculating improvements based on keys: {check_keys} with options: {options} / other keys: {other_keys}"
+    )
+    improveds: list[dict[str, Any]] = []
+    for ck, other_options in options:
+        for other_option in other_options:
+            base_rows = df[df[ck] == base[ck]]
+            other_rows = df[df[ck] == other_option]
+            # match rows
+            for i, base_row in base_rows.iterrows():
+                matching_others = other_rows[
+                    (other_rows[other_keys] == base_row[other_keys]).all(axis=1)
+                ]
+                if len(matching_others) == 0:
+                    # print(
+                    #     f"No matching row found for base row with {other_keys}={base_row[other_keys].to_dict()} when comparing {ck}={base[ck]} to {ck}={other_option}."
+                    # )
+                    continue
+
+                improvements = (matching_others[val_cols] - base_row[val_cols]).iloc[0]
+                improveds.append(
+                    improvements.to_dict()
+                    | matching_others.iloc[0][index_cols].to_dict()
+                )
+    if len(improveds) == 0:
+        print("No improvements calculated. Returning empty DataFrame.")
+        return pd.DataFrame()
+    return pd.DataFrame(improveds).set_index(index_cols).sort_index()
+
+
+def df_topk(
+    df: pd.DataFrame, k: int, metrics: list = ["$F_{1,micro}$"]
+) -> pd.DataFrame:
+    idx_cols = df.index.names
+    val_cols = df.columns.tolist()
+
+    df_cp = df.copy().reset_index()
+    df_sorted = df_cp.sort_values(metrics, ascending=False)
+    topk_df = df_sorted.head(k)
+    topk_df.set_index(idx_cols, inplace=True)
+    topk_df = topk_df.sort_index()
+    return topk_df[val_cols]
+
+
+def calculate_relative_improvements(
     df_in: pd.DataFrame,
     df_other: pd.DataFrame,
     relevant_metrics: list[str] = ["$F_1$", "$F_{1,micro}$"],

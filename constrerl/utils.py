@@ -75,6 +75,8 @@ def extract_flags_from_name(
         AnnotationTypes.RELATION,
     ]
     model_name = "3.2 3B" if "hermes-3-2-3B" in name or "323B" in name else "3.1 8B"
+    if "baseline" in name.lower():
+        model_name = " Baseline"
     graphwise_name = None
 
     def get_graphwise_name(name: str) -> str:
@@ -140,17 +142,19 @@ def extract_flags_from_name(
         # "fname": name,
     }
 
-    if merge_mode and graphwise_name is not None:
-        result_dict["Graphwise"] = graphwise_name
+    if merge_mode:
+        result_dict["Graphwise"] = graphwise_name if graphwise_name is not None else ""
         result_dict.pop("Filter", None)
+        result_dict.pop("Naive", None)
+        result_dict.pop("RAG", None)
     if k is not None:
         result_dict["$k$"] = k
-    set_op = "$\cup$" if "union" in name else "$\cap$"
+    set_op = "$\cup$" if "union" in name else "$\cap$" if "intersection" in name else ""
     if merge_mode:
         result_dict["Set"] = set_op
     for k, v in result_dict.items():
         if isinstance(v, bool):
-            result_dict[k] = tf[v]
+            result_dict[k] = tf[v] if model_name != " Baseline" else "-"
     return result_dict
 
 
@@ -198,6 +202,7 @@ def calculate_improvements(
     if len(improveds) == 0:
         print("No improvements calculated. Returning empty DataFrame.")
         return pd.DataFrame()
+    print(f"Resetting {index_cols=}")
     return pd.DataFrame(improveds).set_index(index_cols).sort_index()
 
 

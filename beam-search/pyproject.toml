@@ -1,23 +1,21 @@
 [project]
-name = "gift-to-moodlexml"
-version = "0.1.2"
-description = "Extended GIFT format to Moodle XML question parser"
-authors = [
-    {name = "Benedikt Kantz",email = "benedikt@kantz.at"}
-]
-license = {text = "MIT"}
+name = "llama-cpp-beam-search"
+version = "0.1.0"
+description = ""
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.13"
 dependencies = [
-    "pyparsing (>=3.3.2,<4.0.0)",
-    "lxml (>=6.0.2,<7.0.0)",
-    "markdown (>=3.10.2,<4.0.0)"
 ]
+authors = [{ name = "Benedikt Kantz", email = "benedikt.kantz@tugraz.at" }]
+license = "MIT"
+
+[project.urls]
+Repository = "https://github.com/Dakantz/CHASTE"
 
 
-[build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+[tool.uv]
+package = true
 
-[tool.poetry]
-package-mode = true
+[project.scripts]
+tex-typst-helper = "texty_tool.main:app"
+texty-tool = "texty_tool.main:app"

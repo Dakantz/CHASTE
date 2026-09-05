@@ -2355,14 +2355,14 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "lark", specifier = ">=1.3.1" },
-    { name = "llama-cpp-python", editable = "beam-search/llama-cpp-python" },
+    { name = "llama-cpp-python", editable = "beam-search/src/llama-cpp-python" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "tqdm", specifier = ">=4.67.3" },
 ]
 
 [[package]]
 name = "llama-cpp-python"
-source = { editable = "beam-search/llama-cpp-python" }
+source = { editable = "beam-search/src/llama-cpp-python" }
 dependencies = [
     { name = "diskcache" },
     { name = "jinja2" },

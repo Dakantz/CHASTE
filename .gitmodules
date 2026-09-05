@@ -1,6 +1,6 @@
 [submodule "GutBrainIE_2026_Baseline"]
 	path = GutBrainIE_2026_Baseline
 	url = https://github.com/MMartinelli-hub/GutBrainIE_2026_Baseline.git
-[submodule "llama-cpp-python"]
-	path = llama-cpp-pythonbeam-search/src/llama-cpp-python
+[submodule "beam-search/src/llama-cpp-python"]
+	path = beam-search/src/llama-cpp-python
 	url = https://github.com/Dakantz/llama-cpp-python.git

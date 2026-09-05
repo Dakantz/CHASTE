@@ -83,4 +83,5 @@ members = [
     "deepstruct",
     "beam-search",
     "beam-search/llama-cpp-python",
+    "beam-search/src/llama-cpp-python",
 ]

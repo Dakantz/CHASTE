@@ -5,6 +5,10 @@ description = ""
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "lark>=1.3.1",
+    "llama-cpp-python",
+    "pytest>=9.1.1",
+    "tqdm>=4.67.3",
 ]
 authors = [{ name = "Benedikt Kantz", email = "benedikt.kantz@tugraz.at" }]
 license = "MIT"
@@ -15,6 +19,9 @@ Repository = "https://github.com/Dakantz/CHASTE"
 
 [tool.uv]
 package = true
+
+[tool.uv.sources]
+llama-cpp-python = { workspace = true }
 
 [project.scripts]
 tex-typst-helper = "texty_tool.main:app"

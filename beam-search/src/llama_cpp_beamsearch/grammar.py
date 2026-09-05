@@ -1,7 +1,6 @@
 import re
 
-from lark import ParseTree, Token, Tree
-from lark import Lark
+from lark import Lark, ParseTree, Token, Tree
 
 GBNF_GRAMMAR = r"""
 start     : rule+
@@ -51,15 +50,18 @@ class GrammarMatcher:
         self, test_string: str, literal: str, position: int, strict: bool = False
     ):
         literal_value = literal.strip('"')
-        do_strict = True
-        if len(literal_value) > len(test_string[position:]):
-            do_strict = False
-        if do_strict:
-            if test_string[position:].startswith(literal_value):
-                return True, position + len(literal_value)
-        else:
-            if literal_value.startswith(test_string[position:]):
-                return True, position + len(literal_value)
+        if literal_value.startswith(test_string[position:]):
+            return True, position + len(literal_value)
+        # do_strict = True
+        # if len(literal_value) > len(test_string[position:]):
+        #     do_strict = False
+        # lit_len = len(literal_value)
+        # if do_strict:
+        #     if test_string[position : position + lit_len] == literal_value:
+        #         return True, position + lit_len
+        # else:
+        #     if literal_value.startswith(test_string[position:]):
+        #         return True, position + lit_len
         return False, position
 
     def _match_char_class(self, test_string: str, char_class: str, position: int):

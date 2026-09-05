@@ -1,24 +1,9 @@
 from math import inf
 
 from llama_cpp import Llama, LlamaGrammar
-import numpy as np
-from dataclasses import dataclass, field
 
-from torch import add
-from .grammar import GBNF_PARSER, test_against_grammar
-
-
-@dataclass
-class BeamSearchConfig:
-    top_k: int = 3
-    max_depth: int = 4
-    end_token: str | None = "\n"
-    skip_tokens: int = 1
-    oversample: int = 8129
-    k_progress: list[int] | None = field(
-        default_factory=lambda: [4, 2, -1]
-    )  # k for depth, -1 means to take top until end_token
-    length_cost: float = 0
+from llama_cpp_beamsearch.grammar import GBNF_PARSER, test_against_grammar
+from llama_cpp_beamsearch.config import BeamSearchConfig
 
 
 class BeamSearchNode:
@@ -26,11 +11,11 @@ class BeamSearchNode:
         self,
         model: Llama,
         grammar: LlamaGrammar,
-        cfg: BeamSearchConfig = BeamSearchConfig(),
+        cfg: BeamSearchConfig | None = None,
         lark_grammar=None,
         depth=0,
-        input_tokens: list[int] = None,
-        new_tokens: list[int] = [],
+        input_tokens: list[int] | None = None,
+        new_tokens: list[int] | None = None,
     ):
         self.children: list[BeamSearchNode] = []
         self.model = model
@@ -38,10 +23,10 @@ class BeamSearchNode:
         self.token: int = -1
         self.token_str: str = None
         self.log_p = 1
-        self.cfg = cfg
+        self.cfg = cfg if cfg is not None else BeamSearchConfig()
         self.depth = depth
         self.input_tokens = input_tokens
-        self.new_tokens: list[int] = new_tokens
+        self.new_tokens: list[int] = new_tokens if new_tokens is not None else []
         self.new_str: str = ""
         if lark_grammar is None:
             # print("Parsing grammar with lark...", grammar._grammar)
@@ -154,7 +139,8 @@ class BeamSearchNode:
         if response["choices"][0]["finish_reason"] == "stop":
             self.children = [self.create_child(self.eos_token_id(), 0)]
             return
-
+        if len(logits) == 0:
+            return
         filtered_logits = self.filter_logits(logits[0])
         if len(filtered_logits) == 0:
             # print(

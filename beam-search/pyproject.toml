@@ -1,7 +1,7 @@
 [project]
 name = "llama-cpp-beam-search"
-version = "0.1.0"
-description = ""
+version = "0.1.1"
+description = "A package to combine GBNF and Beam Search for probablistic grammar pruning with configurables beams (both breadth- and depth-first)"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [

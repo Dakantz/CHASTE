@@ -1,5 +1,14 @@
 # Beam Search over Efficient `llama.cpp` generations
 
+## Install
+
+```sh
+pip install llama-cpp-beam-search
+# OR
+uv add  llama-cpp-beam-search
+```
+
+
 ## Theory
 
 > Forthcoming...

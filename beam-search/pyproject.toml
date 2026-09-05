@@ -21,8 +21,6 @@ Repository = "https://github.com/Dakantz/CHASTE"
 package = true
 
 [tool.uv.sources]
-llama-cpp-python = { workspace = true }
-
-[project.scripts]
-tex-typst-helper = "texty_tool.main:app"
-texty-tool = "texty_tool.main:app"
+llama-cpp-python = [
+    { git = "https://github.com/Dakantz/llama-cpp-python.git", branch = "main" },
+]

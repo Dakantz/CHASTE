@@ -844,7 +844,7 @@ entity-str ::= {entity_str_grammar}
         return relations
 
 
-annotator_mapping = {
+annotator_mapping: dict[AnnotationTypes, type[Annotator]] = {
     AnnotationTypes.ENTITY: EntityAnnotator,
     AnnotationTypes.RELATION: RelationAnnotator,
 }

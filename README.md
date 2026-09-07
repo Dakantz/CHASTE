@@ -2,6 +2,10 @@
 
 `Benedikt Kantz, Peter Walder, Stefan Lengauer, Tobias Schreck`
 
+## Beam Search Module
+
+For more info go to the subfolder for [beam search](./beam-search/README.md) where instructions for building/installation are bundled.
+
 ## reloaded for '26 - I have become CHASTE, master of CLEANR
 
 * `C`onstrained

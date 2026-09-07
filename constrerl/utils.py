@@ -258,3 +258,13 @@ def calculate_relative_improvements(
         print("No improvements calculated. Returning empty DataFrame.")
         return pd.DataFrame()
     return pd.DataFrame(improveds).set_index(index_cols).sort_index()
+
+
+def task_id_to_name(task_id: str) -> str:
+    task_map = {
+        "6.1.1": "\\gls{ner}",
+        "6.1.2": "\\gls{nerd}",
+        "6.2.1": "\\gls{re}",
+        "6.2.2": "\\gls{mre}",
+    }
+    return task_map.get(task_id, task_id)

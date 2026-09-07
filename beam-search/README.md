@@ -1,60 +1,67 @@
-# llama-cpp-beam-search
-Creating Moodle XML Questions from extended GIFT format
-
-## Features
-
-* Parse GIFT files more robustly compared to moodle
-* Supports full markdown syntax (incl. Code highlighting!)
-* Points are automatically inferred OR can be set!
-  - Deducts -50% for single choice, -100% for T/F question
-* Supports:
- - True/False Question (will be converted to Multichoice to allow point deduction)
- - Multichoice
- - Single Choice
- - Fill-the Blank
-
-
+# Beam Search over Efficient `llama.cpp` generations
 
 ## Install
 
+```sh
+pip install llama-cpp-beam-search
+pip install git+https://github.com/Dakantz/llama-cpp-python.git@main
+# OR
+uv add  llama-cpp-beam-search
+uv pip install git+https://github.com/Dakantz/llama-cpp-python.git@main
 ```
-pip install gift-to-moodlexml
+
+
+### Multi-Platform Compatibility
+
+You can prepend the variable to trigger the `llama-cpp-python` build for your specific platform/accelerator ([see here](https://llama-cpp-python.readthedocs.io/en/latest/install/macos/)).
+```sh
+# MacOS + PIP
+CMAKE_ARGS="-DGGML_METAL=on" pip install git+https://github.com/Dakantz/llama-cpp-python.git@main
+# MacOS + UV
+CMAKE_ARGS="-DGGML_METAL=on" uv pip install git+https://github.com/Dakantz/llama-cpp-python.git@main
+# CUDA + PIP
+CMAKE_ARGS="-DGGML_CUDA=on" pip install git+https://github.com/Dakantz/llama-cpp-python.git@main
+# CUDA + UV
+CMAKE_ARGS="-DGGML_CUDA=on" uv pip install git+https://github.com/Dakantz/llama-cpp-python.git@main
 ```
 
-## Usage
+## Theory
 
-Assume you have some (extended) GIFT file:
+Our rough idea was to get a complete (holistic) probabilistic view of the tokens and prune accordingly. To save on the search space, we only take $f$ expansions, or go depth first.
 
-```md
-$CATEGORY: OOP2/Intro
+![](./img/beam-search.png)
 
-[markdown]Java supports use of `varargs` (variable arguments) for parameter passing {T}
-
-[markdown] What pattern does this Code use?
-`Logger logger=Logger.getInstance();`
-{
-    ~ Factory
-    ~ Configurator
-    = Singleton
-    ~ Generics
-    ~ Builder
-    ~ Creator
-    ~ Observer
-}
-```
-Then you can parse it to an XML to upload to moodle:
+## Example Usage
 
 ```python
-import gift_to_moodlexml
-from pathlib import Path
-questions_files= list(Path("./").glob("*.gift"))
-all_questions = []
-for q_file in questions_files:
-    with open(q_file, "r") as file:
-        content = file.read()
-        questions = content.split("\n\n")
-        questions = [q for q in questions]
-        question = questions[0]
-        all_questions.extend(questions)
-gift_to_moodlexml.generate_xml_from_questions(all_questions, output_file="quiz_package.xml")
+from llama_cpp_beamsearch.completion import BeamSearchCompletion
+from llama_cpp_beamsearch.config import BeamSearchConfig
+from llama_cpp import Llama, LlamaGrammar, ChatCompletionRequestMessage
+import re
+model = Llama.from_pretrained(
+    repo_id="unsloth/Qwen3-0.6B-GGUF",
+    filename="*Q4_0.gguf",
+    verbose=False,
+    logits_all=True,
+)
+allowed_tokens = ["Wrench", "Screwdriver", "Ornament"]
+allowed_tokens_str = " | ".join(f'"{t}"' for t in allowed_tokens)
+grammar = LlamaGrammar(
+    _grammar=f"""
+    root ::= allowed_tokens
+    start ::= ( allowed_tokens " "  )*
+    allowed_tokens ::= {allowed_tokens_str}
+    """
+)
+config = BeamSearchConfig(
+    max_depth=1,
+    end_token=None,
+    k_progress=[2, 3],
+)
+completion = BeamSearchCompletion(model, grammar, config)
+
+message = "Hello?"
+
+result = completion.completion_beam_search(message, max_tokens=5)
+assert re.match(r"^((Wrench|Screwdriver|Ornament) ?)*$", result)
 ```

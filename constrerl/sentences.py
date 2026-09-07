@@ -32,7 +32,7 @@ class SentenceAnnotator(abc.ABC):
 
 
 class SpacyAnnotator(abc.ABC):
-    def __init__(self, model_name: str = "en_core_web_trf"):
+    def __init__(self, model_name: str = "en_core_web_hftrf"):
         self.nlp = spacy.load(model_name)
 
     def extract_noun_phrases(self, txt: str) -> dict[str, AnnotationSpan]:

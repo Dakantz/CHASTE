@@ -1,35 +1,13 @@
-# Beam Search over Efficient `llama.cpp` generations
+# Beam Search over Efficient `llama.cpp` generations + Grammar constraints
 
-## Install
+This package enables combined beam search *and* grammmatical constraints on `llama.cpp` models.
 
-```sh
-pip install llama-cpp-beam-search
-pip install git+https://github.com/Dakantz/llama-cpp-python.git@main
-# OR
-uv add  llama-cpp-beam-search
-uv pip install git+https://github.com/Dakantz/llama-cpp-python.git@main
-```
-
-
-### Multi-Platform Compatibility
-
-You can prepend the variable to trigger the `llama-cpp-python` build for your specific platform/accelerator ([see here](https://llama-cpp-python.readthedocs.io/en/latest/install/macos/)).
-```sh
-# MacOS + PIP
-CMAKE_ARGS="-DGGML_METAL=on" pip install git+https://github.com/Dakantz/llama-cpp-python.git@main
-# MacOS + UV
-CMAKE_ARGS="-DGGML_METAL=on" uv pip install git+https://github.com/Dakantz/llama-cpp-python.git@main
-# CUDA + PIP
-CMAKE_ARGS="-DGGML_CUDA=on" pip install git+https://github.com/Dakantz/llama-cpp-python.git@main
-# CUDA + UV
-CMAKE_ARGS="-DGGML_CUDA=on" uv pip install git+https://github.com/Dakantz/llama-cpp-python.git@main
-```
 
 ## Theory
 
 Our rough idea was to get a complete (holistic) probabilistic view of the tokens and prune accordingly. To save on the search space, we only take $f$ expansions, or go depth first.
 
-![](./img/beam-search.png)
+![](https://github.com/Dakantz/CHASTE/raw/main/beam-search/img/beam-search.png)
 
 ## Example Usage
 
@@ -64,4 +42,30 @@ message = "Hello?"
 
 result = completion.completion_beam_search(message, max_tokens=5)
 assert re.match(r"^((Wrench|Screwdriver|Ornament) ?)*$", result)
+```
+
+
+## Install
+
+```sh
+pip install llama-cpp-beam-search
+pip install git+https://github.com/Dakantz/llama-cpp-python.git@main
+# OR
+uv add  llama-cpp-beam-search
+uv pip install git+https://github.com/Dakantz/llama-cpp-python.git@main
+```
+
+
+### Multi-Platform Compatibility
+
+You can prepend the variable to trigger the `llama-cpp-python` build for your specific platform/accelerator ([see here](https://llama-cpp-python.readthedocs.io/en/latest/install/macos/)).
+```sh
+# MacOS + PIP
+CMAKE_ARGS="-DGGML_METAL=on" pip install git+https://github.com/Dakantz/llama-cpp-python.git@main
+# MacOS + UV
+CMAKE_ARGS="-DGGML_METAL=on" uv pip install git+https://github.com/Dakantz/llama-cpp-python.git@main
+# CUDA + PIP
+CMAKE_ARGS="-DGGML_CUDA=on" pip install git+https://github.com/Dakantz/llama-cpp-python.git@main
+# CUDA + UV
+CMAKE_ARGS="-DGGML_CUDA=on" uv pip install git+https://github.com/Dakantz/llama-cpp-python.git@main
 ```

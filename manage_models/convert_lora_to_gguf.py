@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# Copied from llama.cpp (https://github.com/ggml-org/llama.cpp), MIT License.
+# Copyright (c) 2023-2024 The ggml authors
 
 from __future__ import annotations
 

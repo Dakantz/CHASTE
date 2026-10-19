@@ -1,0 +1,43 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "CHASTE: Constrained Holistic Annotator System with onTological Entities"
+version: submission-licensed
+date-released: 2026-05-20
+license: MIT
+doi: "10.5281/zenodo.20313871"
+url: "https://github.com/Dakantz/CHASTE"
+repository-code: "https://github.com/Dakantz/CHASTE"
+authors:
+- family-names: "Kantz"
+  given-names: "Benedikt"
+  orcid: "https://orcid.org/0000-0003-3294-8421"
+- family-names: "Waldert"
+  given-names: "Peter"
+  orcid: "https://orcid.org/0009-0004-8459-7381"
+- family-names: "Lengauer"
+  given-names: "Stefan"
+  orcid: "https://orcid.org/0000-0001-5136-4320"
+- family-names: "Schreck"
+  given-names: "Tobias"
+  orcid: "https://orcid.org/0000-0003-0778-8665"
+preferred-citation:
+  type: conference-paper
+  title: "CHASTE: Constrained Holistic Annotator System with onTological Entities"
+  collection-title: "CLEF 2026 Working Notes"
+  publisher:
+    name: "CEUR-WS.org"
+  year: 2026
+  url: "https://dakantz.at/papers/2026/chaste/paper.pdf"
+  authors:
+  - family-names: "Kantz"
+    given-names: "Benedikt"
+    orcid: "https://orcid.org/0000-0003-3294-8421"
+  - family-names: "Waldert"
+    given-names: "Peter"
+    orcid: "https://orcid.org/0009-0004-8459-7381"
+  - family-names: "Lengauer"
+    given-names: "Stefan"
+    orcid: "https://orcid.org/0000-0001-5136-4320"
+  - family-names: "Schreck"
+    given-names: "Tobias"
+    orcid: "https://orcid.org/0000-0003-0778-8665"

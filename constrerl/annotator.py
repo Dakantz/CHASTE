@@ -1,55 +1,51 @@
 import enum
-from html import entities
-from itertools import count
+import json
+import os
+import re
+from collections.abc import Callable, Iterator
 from pathlib import Path
-from turtle import pos
+from typing import Generic, TypeVar
 
-from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
-
-from .erl_schema import (
-    clean_label,
-    entity_labels,
-    relations as relation_labels,
-)
-from .annotation_model import (
-    FullRelation,
-    Metadata,
-    Entity,
-    AnnotatedArticle,
-    Relation,
-)
+import numpy as np
+import pandas as pd
+import torch as th
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from llama_cpp import (
-    Llama,
     ChatCompletionRequestMessage,
+    Llama,
     LlamaGrammar,
     llama_chat_format,
 )
-from tqdm import tqdm
-import json
-from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import SystemMessage, AIMessage, HumanMessage
-import pandas as pd
-
-from sentence_transformers import SentenceTransformer
-import torch as th
-import numpy as np
 from pydantic import BaseModel
-import re
+from sentence_transformers import SentenceTransformer
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from tqdm import tqdm
 
-from typing import TypeVar, Generic
-from .beam_search.beam_search import BeamSearchNode, BeamSearchConfig
-from .sentences import (
-    Sentence,
-    AnnotationSpan,
-    SpacyAnnotator,
-    article_to_sentences,
-    annotated_sentences_to_article,
+from .annotation_model import (
+    AnnotatedArticle,
+    Entity,
+    FullRelation,
+    Metadata,
+    Relation,
 )
+from .beam_search.beam_search import BeamSearchConfig, BeamSearchNode
 from .concepts import ConceptDefinition
-from collections.abc import Iterator, Callable
-
-import os
+from .erl_schema import (
+    clean_label,
+    entity_labels,
+)
+from .erl_schema import (
+    relations as relation_labels,
+)
+from .sentences import (
+    AnnotationSpan,
+    Sentence,
+    SpacyAnnotator,
+    annotated_sentences_to_article,
+    article_to_sentences,
+)
 
 ANNOTATION_SYSTEM_PROMPT = (
     """You are a medical expert annotating a medical scientific title and abstract."""
